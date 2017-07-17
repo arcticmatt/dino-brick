@@ -16,5 +16,12 @@ extra-source-files:  README.md
 executable stairs
   hs-source-dirs:      src
   main-is:             Main.hs
+  ghc-options:         -threaded -Wall -fno-warn-unused-do-bind -O3
   default-language:    Haskell2010
   build-depends:       base >= 4.7 && < 5
+                     , brick
+                     , containers
+                     , linear
+                     , microlens
+                     , microlens-th
+                     , random

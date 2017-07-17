@@ -1,5 +1,9 @@
 module Main where
 
+import Brick
+
+ui :: Widget ()
+ui = str "Hello, world!"
+
 main :: IO ()
-main = do
-  putStrLn "hello world"
+main = simpleMain ui

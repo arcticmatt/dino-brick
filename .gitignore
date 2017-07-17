@@ -5,3 +5,4 @@
 *.swo
 *.tmp
 .DS_STORE
+.stack-work
