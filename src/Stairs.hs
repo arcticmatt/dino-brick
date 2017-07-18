@@ -11,12 +11,14 @@ import qualified Data.Sequence as S
 
 -- Types
 data Game = Game
-  { _lFoot   :: Foot          -- ^ foot with position and size
-  , _rFoot   :: Foot          -- ^ foot with position and size
+  { _lFoot   :: Foot         -- ^ foot with position and size
+  , _lDir    :: Direction    -- ^ direction of left foot
+  , _rFoot   :: Foot         -- ^ foot with position and size
+  , _rDir    :: Direction    -- ^ direction of right foot
   , _sStairs :: S.Seq Stair  -- ^ sequence of stairs on screen
   , _nStairs :: Stream Stair -- ^ infinite list of random next stair locations
-  , _dead    :: Bool          -- ^ game over flag
-  , _score   :: Int           -- ^ score
+  , _dead    :: Bool         -- ^ game over flag
+  , _score   :: Int          -- ^ score
   } deriving (Show)
 
 type Coord = V2 Int
@@ -28,6 +30,12 @@ data Foot = Foot { _fPos :: Coord, _fSize :: Size }
 
 data Stream a = a :| Stream a
   deriving (Show)
+
+data Direction =
+    Up
+  | Down
+  | Still
+  deriving (Eq, Show)
 
 makeLenses ''Game
 makeLenses ''Stair
@@ -47,6 +55,10 @@ stairLow = Stair (V2 0 0) 10 stairHeight
 stairHigh = Stair (V2 10 10) 40 stairHeight
 
 -- Functions
+-- | Step forward in time
+step :: Game -> Game
+step g = g -- TODO: fix this
+
 -- | Initialize a game with random stair location
 initGame :: IO Game
 initGame = do

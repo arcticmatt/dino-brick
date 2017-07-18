@@ -1,11 +1,17 @@
+{-# LANGUAGE OverloadedStrings #-}
 module UI where
+
+import Control.Monad (forever, void)
+import Control.Monad.IO.Class (liftIO)
+import Control.Concurrent (threadDelay, forkIO)
 
 import Stairs
 
 import Brick
-import Brick.Widgets.Border
-import Brick.Widgets.Border.Style
-import Brick.Widgets.Center
+import Brick.BChan (newBChan, writeBChan)
+import Brick.Widgets.Border as B
+import Brick.Widgets.Border.Style as BS
+import Brick.Widgets.Center as C
 import qualified Graphics.Vty as V
 
 -- Types
@@ -31,21 +37,34 @@ app = App { appDraw = drawUI
 
 -- Handling events
 handleEvent :: Game -> BrickEvent Name Tick -> EventM Name (Next Game)
-handleEvent = undefined
+handleEvent g (AppEvent Tick) = continue $ step g
 
 -- Drawing
 drawUI :: Game -> [Widget Name]
-drawUI g = undefined
+drawUI g = [w]
 
 theMap :: AttrMap
-theMap = undefined
+theMap = attrMap V.defAttr
+ [ (footAttr, V.white `on` V.white)
+ , (stairAttr, V.white `on` V.white)
+ ]
+
+footAttr, stairAttr :: AttrName
+footAttr = "footAttr"
+stairAttr = "stairAttr"
 
 ui :: Widget ()
 ui = str "Hello, world!"
 
 w :: Widget ()
-w = withBorderStyle Brick.Widgets.Border.Style.ascii $
-        Brick.Widgets.Border.border $ center $ str "Hello, world!"
+w = withBorderStyle BS.ascii $
+        B.border $ center $ str "Hello, world!"
 
 main :: IO ()
-main = simpleMain w
+main = do
+  chan <- newBChan 10
+  forkIO $ forever $ do
+    writeBChan chan Tick
+    threadDelay 100000
+  g <- initGame
+  void $ customMain (V.mkVty V.defaultConfig) (Just chan) app g
