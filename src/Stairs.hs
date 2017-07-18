@@ -5,7 +5,7 @@ module Stairs where
 
 import Lens.Micro.TH (makeLenses)
 import Lens.Micro.Type
-import Lens.Micro ((&), (.~), (%~), (^.))
+import Lens.Micro ((&), (.~), (%~), (^.), mapped)
 import Linear.V2 (V2(..), _y)
 import System.Random (Random(..), newStdGen)
 import qualified Data.Sequence as S
@@ -85,7 +85,7 @@ step = move . spawnStair -- TODO account for dying
 -- Moving functions
 -- | Move everything on the screen
 move :: Game -> Game
-move = moveFeet -- TODO move the stairs
+move = moveStairs . moveFeet -- TODO move the stairs
 -- move = undefined
 
 -- | Move the feet
@@ -106,12 +106,13 @@ moveFoot dl yl g = case g^.dl of
     _    -> g
 
 moveStairs :: Game -> Game
-moveStairs g = id g
+-- moveStairs g = g & sStairs .~ (fmap g)
+moveStairs g = g & sStairs . mapped %~ moveStair
 
 -- TODO: need to move left and right too...
 -- TODO: need to accelarate it and ZOOM
 moveStair :: Stair -> Stair
-moveStair s = id s
+moveStair s = s & sPos %~ (+ (V2 0 (-1)))
 
 -- Stair functions
 -- | (Possibly) add a stair to the sStairs sequence.
