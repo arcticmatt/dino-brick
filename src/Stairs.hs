@@ -3,11 +3,10 @@
 
 module Stairs where
 
-import Control.Applicative (liftA2)
 import Lens.Micro.TH (makeLenses)
 import Lens.Micro.Type
 import Lens.Micro ((&), (.~), (%~), (^.))
-import Linear.V2 (V2(..), _x, _y, _xy)
+import Linear.V2 (V2(..), _y)
 import System.Random (Random(..), newStdGen)
 import qualified Data.Sequence as S
 import Data.Ix (inRange)
@@ -65,6 +64,7 @@ lFootStart, rFootStart :: Foot
 lFootStart = Foot (V2 lX 0) footSize
 rFootStart = Foot (V2 rX 0) footSize
 
+-- TODO magic numbers
 stairLow, stairHigh :: Stair
 stairLow = Stair (V2  10 33) 5 stairHeight
 stairHigh = Stair (V2 (gridWidth - 10) 33) 15 stairHeight
@@ -99,10 +99,10 @@ moveFeet = moveFoot lDir leftY . moveFoot rDir rightY
 -- If the foot reaches the max height, force it down.
 moveFoot :: Lens' Game Direction -> Lens' Game Int -> Game -> Game
 moveFoot dl yl g | g^.yl <= 0 && g^.dl == Down = g & yl .~ 0 & dl .~ Still
-                 | g^.yl > maxHeight           = g & yl %~ (subtract 1) & dl .~ Down
+                 | g^.yl > maxHeight           = g & yl %~ subtract 1 & dl .~ Down
 moveFoot dl yl g = case g^.dl of
     Up   -> g & yl %~ (+1) -- TODO:
-    Down -> g & yl %~ (subtract 1) -- TODO: hardcoded
+    Down -> g & yl %~ subtract 1 -- TODO: hardcoded
     _    -> g
 
 moveStairs :: Game -> Game
@@ -120,7 +120,7 @@ spawnStair g =
   let (s :| ss) = g ^. nStairs
   in if shouldSpawn g
     then g & nStairs .~ ss
-           & sStairs %~ (flip (S.|>) s)
+           & sStairs %~ (S.|> s)
     else g
 
 -- | Spawn a stair if there are no stairs, or if the highest stair has reached
