@@ -6,6 +6,7 @@ import Control.Monad (forever, void)
 import Control.Concurrent (threadDelay, forkIO)
 
 import Stairs
+import Controls
 
 import Brick
 import Brick.BChan (newBChan, writeBChan)
@@ -86,8 +87,9 @@ drawGrid g = withBorderStyle BS.unicodeBold
     cellsInRow y = [drawCoord (V2 x y) | x <- [0..gridWidth - 1]]
     drawCoord = drawCell . cellAt
     cellAt c
-      | isFeet c g = FootCell
-      | otherwise  = EmptyCell
+      | isFeet c g   = FootCell -- order kinda matters (if we want diff colors)
+      | isStairs c g = StairCell
+      | otherwise    = EmptyCell
 
 drawCell :: Cell -> Widget Name
 drawCell FootCell = withAttr footAttr cw
@@ -125,6 +127,6 @@ main = do
   chan <- newBChan 10
   forkIO $ forever $ do
     writeBChan chan Tick
-    threadDelay 100000
+    threadDelay 40000
   g <- initGame
   void $ customMain (V.mkVty V.defaultConfig) (Just chan) app g

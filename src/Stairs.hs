@@ -11,6 +11,7 @@ import Linear.V2 (V2(..), _x, _y, _xy)
 import System.Random (Random(..), newStdGen)
 import qualified Data.Sequence as S
 import Data.Ix (inRange)
+import Data.Monoid (Any(..), getAny)
 
 -- Types
 data Game = Game
@@ -46,8 +47,8 @@ makeLenses ''Foot
 
 -- Constants
 gridWidth, gridHeight :: Size
-gridWidth = 30
-gridHeight = 30
+gridWidth = 35
+gridHeight = 35
 
 footSize, stairHeight :: Size
 footSize = 2
@@ -65,34 +66,23 @@ lFootStart = Foot (V2 lX 0) footSize
 rFootStart = Foot (V2 rX 0) footSize
 
 stairLow, stairHigh :: Stair
-stairLow = Stair (V2 0 0) 10 stairHeight
-stairHigh = Stair (V2 10 10) 20 stairHeight
+stairLow = Stair (V2  10 33) 5 stairHeight
+stairHigh = Stair (V2 (gridWidth - 10) 33) 15 stairHeight
 
 -- Max height the feet can reach
 maxHeight :: Int
-maxHeight = 10
+maxHeight = 8
+
+spawnThresh :: Int
+spawnThresh = gridHeight - 5
 
 -- Functions
--- | Step forward in time
+-- | Step forward in time.
+-- TODO: scale stairs
 step :: Game -> Game
-step g = move g -- TODO account for dying
+step = move . spawnStair -- TODO account for dying
 
--- | Change direction of a foot, which is referenced by dl.
--- If current direction is Still, we change it to Up.
--- If current direction is Up, we change it to Down.
-changeFoot :: Lens' Game Direction -> Lens' Game Direction -> Game -> Game
-changeFoot _ other g | g^.other == Up = g
-changeFoot tomove _ g = case g^.tomove of
-  Up    -> g & tomove .~ Down
-  Still -> g & tomove .~ Up
-  _     -> g -- do nothing if foot is moving down
-
-changeRight :: Game -> Game
-changeRight = changeFoot rDir lDir
-
-changeLeft :: Game -> Game
-changeLeft = changeFoot lDir rDir
-
+-- Moving functions
 -- | Move everything on the screen
 move :: Game -> Game
 move = moveFeet -- TODO move the stairs
@@ -102,14 +92,6 @@ move = moveFeet -- TODO move the stairs
 -- TODO: could i use a traversal here?
 moveFeet :: Game -> Game
 moveFeet = moveFoot lDir leftY . moveFoot rDir rightY
-
--- | Lens to access right foot's ypos
-rightY :: Lens' Game Int
-rightY = rFoot . fPos . _y
-
--- | Lens to access left foot's ypos
-leftY :: Lens' Game Int
-leftY = lFoot . fPos . _y
 
 -- | Move a foot.
 -- If the foot's y-pos is <= 0 and the foot is going down, set the ypos to 0 and
@@ -123,6 +105,64 @@ moveFoot dl yl g = case g^.dl of
     Down -> g & yl %~ (subtract 1) -- TODO: hardcoded
     _    -> g
 
+moveStairs :: Game -> Game
+moveStairs g = id g
+
+-- TODO: need to move left and right too...
+-- TODO: need to accelarate it and ZOOM
+moveStair :: Stair -> Stair
+moveStair s = id s
+
+-- Stair functions
+-- | (Possibly) add a stair to the sStairs sequence.
+spawnStair :: Game -> Game
+spawnStair g =
+  let (s :| ss) = g ^. nStairs
+  in if shouldSpawn g
+    then g & nStairs .~ ss
+           & sStairs %~ (flip (S.|>) s)
+    else g
+
+-- | Spawn a stair if there are no stairs, or if the highest stair has reached
+-- a certain y position.
+shouldSpawn :: Game -> Bool
+shouldSpawn g = null (g^.sStairs) ||
+  case S.viewr (g^.sStairs) of
+    _ S.:> a -> a^.sPos._y < spawnThresh
+    _        -> error "shouldn't happen"
+
+-- Helper functions
+-- | Lens to access right foot's ypos
+rightY :: Lens' Game Int
+rightY = rFoot . fPos . _y
+
+-- | Lens to access left foot's ypos
+leftY :: Lens' Game Int
+leftY = lFoot . fPos . _y
+
+-- | Determines whether passed-in coordinate is part of the feet.
+isFeet :: Coord -> Game -> Bool
+isFeet c g = isFoot c (g^.lFoot) || isFoot c (g^.rFoot)
+
+isFoot :: Coord -> Foot -> Bool
+isFoot c foot = inArea c (foot^.fPos) (foot^.fSize) (foot^.fSize)
+
+-- | Determines whether passed-in coordinate is part of the stairs.
+isStairs :: Coord -> Game -> Bool
+isStairs c g = getAny $ foldMap (Any . isStair c) (g^.sStairs)
+
+isStair :: Coord -> Stair -> Bool
+isStair c stair = inArea c (stair^.sPos) (stair^.sWidth) (stair^.sHeight)
+
+-- | inArea c p w h tests whether coordinate c is within the area dictated
+-- by a bottom left corner at p and width and height of w and h.
+inArea :: Coord -> Coord -> Size -> Size -> Bool
+inArea (V2 a b) (V2 x y) w h =
+  let xBounds = (x, x + w)
+      yBounds = (y, y + h)
+  in inRange xBounds a && inRange yBounds b
+
+-- Initialization functions
 -- | Initialize a game with random stair location
 initGame :: IO Game
 initGame = do
@@ -142,17 +182,6 @@ randomStairs = fromList . randomRs (stairLow, stairHigh) <$> newStdGen
 
 fromList :: [a] -> Stream a
 fromList = foldr (:|) (error "Streams must be infinite")
-
--- | Determines whether passed-in coordinate is part of the feet.
-isFeet :: Coord -> Game -> Bool
-isFeet c g = isFoot c (g^.lFoot) || isFoot c (g^.rFoot)
-
-isFoot :: Coord -> Foot -> Bool
-isFoot (V2 a b) foot =
-  let (V2 x y) = foot^.fPos._xy
-      xBounds = (x, x + foot^.fSize)
-      yBounds = (y, y + foot^.fSize)
-  in inRange xBounds a && inRange yBounds b
 
 -- Instances
 instance Random Stair where
