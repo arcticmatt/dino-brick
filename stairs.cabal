@@ -27,3 +27,4 @@ executable stairs
                      , microlens
                      , microlens-th
                      , random
+                     , vty
