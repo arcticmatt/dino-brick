@@ -29,11 +29,6 @@ data Tick = Tick
 -- if we call this "Name" now.
 type Name = ()
 
--- Constants
-gridWidth, gridHeight :: Int
-gridWidth = 30
-gridHeight = 30
-
 data Cell = FootCell | StairCell | EmptyCell
 
 -- App definition
@@ -71,8 +66,8 @@ drawScore n = withBorderStyle BS.unicodeBold
 
 -- Copied from snake example
 drawGameOver :: Bool -> Widget Name
-drawGameOver dead =
-  if dead
+drawGameOver isDead =
+  if isDead
      then withAttr gameOverAttr $ C.hCenter $ str "GAME OVER"
      else emptyWidget
 
@@ -84,11 +79,13 @@ drawGrid g = withBorderStyle BS.unicodeBold
     rows = [hBox $ cellsInRow r | r <- [gridHeight - 1,gridHeight - 2..0]]
     cellsInRow y = [drawCoord (V2 x y) | x <- [0..gridWidth - 1]]
     drawCoord = drawCell . cellAt
-    cellAt c = EmptyCell
+    cellAt c
+      | isFeet c g = FootCell
+      | otherwise  = EmptyCell
 
 drawCell :: Cell -> Widget Name
-drawCell FootCell = undefined
-drawCell StairCell = undefined
+drawCell FootCell = withAttr footAttr cw
+drawCell StairCell = withAttr stairAttr cw
 drawCell EmptyCell = withAttr emptyAttr cw
 
 cw :: Widget Name

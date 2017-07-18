@@ -3,11 +3,13 @@
 
 module Stairs where
 
+import Control.Applicative (liftA2)
 import Lens.Micro.TH (makeLenses)
 import Lens.Micro ((&), (.~), (%~), (^.))
-import Linear.V2 (V2(..), _x, _y)
+import Linear.V2 (V2(..), _x, _y, _xy)
 import System.Random (Random(..), newStdGen)
 import qualified Data.Sequence as S
+import Data.Ix (inRange)
 
 -- Types
 data Game = Game
@@ -42,17 +44,28 @@ makeLenses ''Stair
 makeLenses ''Foot
 
 -- Constants
+gridWidth, gridHeight :: Int
+gridWidth = 30
+gridHeight = 30
+
 footSize, stairHeight :: Size
-footSize = 5
+footSize = 2
 stairHeight = 3 -- We will vary star width, but not stair height
 
+-- | Used for centering calculations
+betweenSpace, lX, rX :: Int
+betweenSpace = 8 -- Choose even number to make math nice
+lX = (gridWidth - betweenSpace) `div` 2 - footSize
+rX = lX + betweenSpace + footSize
+
+-- | Choose coordinates such that feet are centered
 lFootStart, rFootStart :: Foot
-lFootStart = Foot (V2 10 0) footSize
-rFootStart = Foot (V2 20 0) footSize
+lFootStart = Foot (V2 lX 0) footSize
+rFootStart = Foot (V2 rX 0) footSize
 
 stairLow, stairHigh :: Stair
 stairLow = Stair (V2 0 0) 10 stairHeight
-stairHigh = Stair (V2 10 10) 40 stairHeight
+stairHigh = Stair (V2 10 10) 20 stairHeight
 
 -- Functions
 -- | Step forward in time
@@ -76,6 +89,17 @@ randomStairs = fromList . randomRs (stairLow, stairHigh) <$> newStdGen
 
 fromList :: [a] -> Stream a
 fromList = foldr (:|) (error "Streams must be infinite")
+
+-- | Determines whether passed-in coordinate is part of the feet.
+isFeet :: Coord -> Game -> Bool
+isFeet c g = isFoot c (g^.lFoot) || isFoot c (g^.rFoot)
+
+isFoot :: Coord -> Foot -> Bool
+isFoot (V2 a b) foot =
+  let (V2 x y) = foot^.fPos._xy
+      xBounds = (x, x + foot^.fSize)
+      yBounds = (y, y + foot^.fSize)
+  in inRange xBounds a && inRange yBounds b
 
 -- Instances
 instance Random Stair where
