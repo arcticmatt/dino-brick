@@ -1,10 +1,11 @@
 -- {-# LANGUAGE TemplateHaskell, FlexibleContexts #-}
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TemplateHaskell, RankNTypes #-}
 
 module Stairs where
 
 import Control.Applicative (liftA2)
 import Lens.Micro.TH (makeLenses)
+import Lens.Micro.Type
 import Lens.Micro ((&), (.~), (%~), (^.))
 import Linear.V2 (V2(..), _x, _y, _xy)
 import System.Random (Random(..), newStdGen)
@@ -44,7 +45,7 @@ makeLenses ''Stair
 makeLenses ''Foot
 
 -- Constants
-gridWidth, gridHeight :: Int
+gridWidth, gridHeight :: Size
 gridWidth = 30
 gridHeight = 30
 
@@ -67,17 +68,69 @@ stairLow, stairHigh :: Stair
 stairLow = Stair (V2 0 0) 10 stairHeight
 stairHigh = Stair (V2 10 10) 20 stairHeight
 
+-- Max height the feet can reach
+maxHeight :: Int
+maxHeight = 10
+
 -- Functions
 -- | Step forward in time
 step :: Game -> Game
-step g = g -- TODO: fix this
+step g = move g -- TODO account for dying
+
+-- | Change direction of a foot, which is referenced by dl.
+-- If current direction is Still, we change it to Up.
+-- If current direction is Up, we change it to Down.
+changeFoot :: Lens' Game Direction -> Lens' Game Direction -> Game -> Game
+changeFoot _ other g | g^.other == Up = g
+changeFoot tomove _ g = case g^.tomove of
+  Up    -> g & tomove .~ Down
+  Still -> g & tomove .~ Up
+  _     -> g -- do nothing if foot is moving down
+
+changeRight :: Game -> Game
+changeRight = changeFoot rDir lDir
+
+changeLeft :: Game -> Game
+changeLeft = changeFoot lDir rDir
+
+-- | Move everything on the screen
+move :: Game -> Game
+move = moveFeet -- TODO move the stairs
+-- move = undefined
+
+-- | Move the feet
+-- TODO: could i use a traversal here?
+moveFeet :: Game -> Game
+moveFeet = moveFoot lDir leftY . moveFoot rDir rightY
+
+-- | Lens to access right foot's ypos
+rightY :: Lens' Game Int
+rightY = rFoot . fPos . _y
+
+-- | Lens to access left foot's ypos
+leftY :: Lens' Game Int
+leftY = lFoot . fPos . _y
+
+-- | Move a foot.
+-- If the foot's y-pos is <= 0 and the foot is going down, set the ypos to 0 and
+-- set the direction to Still.
+-- If the foot reaches the max height, force it down.
+moveFoot :: Lens' Game Direction -> Lens' Game Int -> Game -> Game
+moveFoot dl yl g | g^.yl <= 0 && g^.dl == Down = g & yl .~ 0 & dl .~ Still
+                 | g^.yl > maxHeight           = g & yl %~ (subtract 1) & dl .~ Down
+moveFoot dl yl g = case g^.dl of
+    Up   -> g & yl %~ (+1) -- TODO:
+    Down -> g & yl %~ (subtract 1) -- TODO: hardcoded
+    _    -> g
 
 -- | Initialize a game with random stair location
 initGame :: IO Game
 initGame = do
   randStairs <- randomStairs
   let g = Game { _lFoot = lFootStart
+               , _lDir = Still
                , _rFoot = rFootStart
+               , _rDir = Still
                , _sStairs = S.empty
                , _nStairs = randStairs
                , _dead = False

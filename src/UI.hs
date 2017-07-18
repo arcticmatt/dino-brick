@@ -2,9 +2,8 @@
 module UI where
 
 import Control.Monad (forever, void)
-import Control.Monad.IO.Class (liftIO)
+-- import Control.Monad.IO.Class (liftIO)
 import Control.Concurrent (threadDelay, forkIO)
-import Data.List (intercalate)
 
 import Stairs
 
@@ -42,7 +41,14 @@ app = App { appDraw = drawUI
 
 -- Handling events
 handleEvent :: Game -> BrickEvent Name Tick -> EventM Name (Next Game)
-handleEvent g (AppEvent Tick) = continue $ step g
+handleEvent g (AppEvent Tick)                       = continue $ step g
+handleEvent g (VtyEvent (V.EvKey V.KRight []))      = continue $ changeRight g
+handleEvent g (VtyEvent (V.EvKey V.KLeft []))       = continue $ changeLeft g
+handleEvent g (VtyEvent (V.EvKey (V.KChar 'a') [])) = continue $ changeRight g
+handleEvent g (VtyEvent (V.EvKey (V.KChar 'd') [])) = continue $ changeLeft g
+handleEvent g (VtyEvent (V.EvKey (V.KChar 'q') [])) = halt g
+handleEvent g (VtyEvent (V.EvKey V.KEsc []))        = halt g
+handleEvent g _ = continue g
 
 -- Drawing
 drawUI :: Game -> [Widget Name]
@@ -94,7 +100,7 @@ cw = str "  "
 theMap :: AttrMap
 theMap = attrMap V.defAttr
  [ (footAttr, V.white `on` V.white)
- , (stairAttr, V.white `on` V.white)
+ , (stairAttr, V.green `on` V.green)
  , (emptyAttr, V.blue `on` V.blue) -- TODO: change/remove
  , (gameOverAttr, fg V.red `V.withStyle` V.bold)
  ]
