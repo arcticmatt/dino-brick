@@ -4,6 +4,7 @@ module UI where
 import Control.Monad (forever, void)
 import Control.Monad.IO.Class (liftIO)
 import Control.Concurrent (threadDelay, forkIO)
+import Data.List (intercalate)
 
 import Stairs
 
@@ -13,6 +14,8 @@ import Brick.Widgets.Border as B
 import Brick.Widgets.Border.Style as BS
 import Brick.Widgets.Center as C
 import qualified Graphics.Vty as V
+import Linear.V2 (V2(..))
+import Lens.Micro ((^.))
 
 -- Types
 -- | Ticks mark passing of time
@@ -25,6 +28,13 @@ data Tick = Tick
 -- Not currently used, but will be easier to refactor
 -- if we call this "Name" now.
 type Name = ()
+
+-- Constants
+gridWidth, gridHeight :: Int
+gridWidth = 30
+gridHeight = 30
+
+data Cell = FootCell | StairCell | EmptyCell
 
 -- App definition
 app :: App Game Tick Name
@@ -41,24 +51,71 @@ handleEvent g (AppEvent Tick) = continue $ step g
 
 -- Drawing
 drawUI :: Game -> [Widget Name]
-drawUI g = [w]
+drawUI g =
+  [ C.center $ padRight (Pad 2) (drawStats g) <+> drawGrid g]
+
+-- Copied from snake example
+drawStats :: Game -> Widget Name
+drawStats g = hLimit 11
+  $ vBox [ drawScore (g ^. score)
+         , padTop (Pad 2) $ drawGameOver (g ^. dead)
+         ]
+
+-- Copied from snake example
+drawScore :: Int -> Widget Name
+drawScore n = withBorderStyle BS.unicodeBold
+  $ B.borderWithLabel (str "Score")
+  $ C.hCenter
+  $ padAll 1
+  $ str $ show n
+
+-- Copied from snake example
+drawGameOver :: Bool -> Widget Name
+drawGameOver dead =
+  if dead
+     then withAttr gameOverAttr $ C.hCenter $ str "GAME OVER"
+     else emptyWidget
+
+drawGrid :: Game -> Widget Name
+drawGrid g = withBorderStyle BS.unicodeBold
+  $ B.borderWithLabel (str "stairs")
+  $ vBox rows
+  where
+    rows = [hBox $ cellsInRow r | r <- [gridHeight - 1,gridHeight - 2..0]]
+    cellsInRow y = [drawCoord (V2 x y) | x <- [0..gridWidth - 1]]
+    drawCoord = drawCell . cellAt
+    cellAt c = EmptyCell
+
+drawCell :: Cell -> Widget Name
+drawCell FootCell = undefined
+drawCell StairCell = undefined
+drawCell EmptyCell = withAttr emptyAttr cw
+
+cw :: Widget Name
+cw = str "  "
 
 theMap :: AttrMap
 theMap = attrMap V.defAttr
  [ (footAttr, V.white `on` V.white)
  , (stairAttr, V.white `on` V.white)
+ , (emptyAttr, V.blue `on` V.blue) -- TODO: change/remove
+ , (gameOverAttr, fg V.red `V.withStyle` V.bold)
  ]
 
-footAttr, stairAttr :: AttrName
+gameOverAttr :: AttrName
+gameOverAttr = "gameOver"
+
+footAttr, stairAttr, emptyAttr :: AttrName
 footAttr = "footAttr"
 stairAttr = "stairAttr"
+emptyAttr = "emptyAttr"
 
-ui :: Widget ()
-ui = str "Hello, world!"
-
-w :: Widget ()
-w = withBorderStyle BS.ascii $
-        B.border $ center $ str "Hello, world!"
+-- ui :: Widget ()
+-- ui = str "Hello, world!"
+--
+-- w :: Widget ()
+-- w = withBorderStyle BS.ascii $
+--         B.border $ center $ str "Hello, world!"
 
 main :: IO ()
 main = do
