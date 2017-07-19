@@ -2,7 +2,7 @@
 module UI where
 
 import Control.Monad (forever, void)
--- import Control.Monad.IO.Class (liftIO)
+import Control.Monad.IO.Class (liftIO)
 import Control.Concurrent (threadDelay, forkIO)
 
 import Dino
@@ -47,6 +47,7 @@ handleEvent g (VtyEvent (V.EvKey V.KUp []))         = continue $ handleUp g
 handleEvent g (VtyEvent (V.EvKey V.KDown []))       = continue $ handleDown g
 handleEvent g (VtyEvent (V.EvKey (V.KChar 'q') [])) = halt g
 handleEvent g (VtyEvent (V.EvKey V.KEsc []))        = halt g
+handleEvent g (VtyEvent (V.EvKey (V.KChar 'r') [])) = liftIO (initGame) >>= continue
 handleEvent g _ = continue g
 
 -- Drawing
