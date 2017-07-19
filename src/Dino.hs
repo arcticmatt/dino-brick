@@ -7,8 +7,9 @@ import Lens.Micro.TH (makeLenses)
 import Lens.Micro.Type
 import Lens.Micro ((&), (.~), (%~), (^.))
 import Linear.V2 (V2(..), _y)
-import System.Random (Random(..), newStdGen)
+import System.Random (Random(..), randomRs, newStdGen)
 import qualified Data.Sequence as S
+import Data.Sequence(ViewR(..), ViewL(..), viewr, viewl, (|>))
 import Data.Ix (inRange)
 import Data.Monoid (Any(..), getAny)
 
@@ -17,14 +18,17 @@ data Game = Game
   { _dino           :: Dino           -- ^ dinosaur
   , _dir            :: Direction      -- ^ direction of left foot
   , _barriers       :: S.Seq Barrier  -- ^ sequence of barriers on screen
+  , _rands          :: [Int]          -- ^ random numbers for spawning
+  , _dimns          :: [Dimension]    -- ^ random barrier dimensions
   , _dead           :: Bool           -- ^ game over flag
   , _score          :: Int            -- ^ score
   } deriving (Show)
 
 type Coord = V2 Int
 type Dino = [Coord] -- we'll represent the dino by 1 or 2 points
-type Barrier = [Coord] -- barriers will be 1-3 points
+type Barrier = [Coord] -- barriers will be 1-6 points around
 -- TODO: probably not worth it to use sequences here
+type Dimension = V2 Int
 
 data Direction =
     Up
@@ -46,17 +50,30 @@ initialDino = [V2 5 0, V2 5 1]
 maxHeight :: Int
 maxHeight = 5
 
+-- Spawning min/max distances
+distMin, distMax :: Int
+distMin = 4
+distMax = 20
+
+-- Barrier min/max width/height
+widthMin, widthMax, heightMin, heightMax :: Int
+widthMin = 1
+widthMax = 3
+heightMin = 1
+heightMax = 3
+
 -- Functions
 -- | Step forward in time.
 -- TODO:
 step :: Game -> Game
-step = moveDino
+step = move . spawnBarrier . deleteBarrier
 
 -- Moving functions
 -- | Move everything on the screen
 move :: Game -> Game
-move = moveDino
+move = moveDino . moveBarriers
 
+-- Dino functions
 -- | Moves dino based on its current direction. If it reaches
 -- the bottom of the grid, stop it. If it reaches the
 -- max height, set its direction to Down.
@@ -93,17 +110,77 @@ dinoBottom g =
       (V2 _ y) = head d -- note: no error checking here (TODO?)
   in y
 
--- | See if we should spawn another barrier
-shouldSpawn :: Game -> Bool
-shouldSpawn g = undefined
+-- Barrier functions
+-- | Move all the barriers
+moveBarriers :: Game -> Game
+moveBarriers g = g & barriers %~ (fmap moveBarrier)
+
+-- | Move single barrier left
+moveBarrier :: Barrier -> Barrier
+moveBarrier = fmap (+ (V2 (-1) 0))
+
+-- | Delete barrier if it has gone off the left side
+deleteBarrier :: Game -> Game
+deleteBarrier g =
+  case viewl $ g^.barriers of
+    EmptyL  -> g
+    a :< as -> let x = getBarrierRightmost a in
+                 case x <= 0 of
+                   True  -> g & barriers .~ as  -- remove
+                   False -> g                  -- do nothing
+
+
+-- | Spawn new barrier (if necessary).
+-- We spawn barriers somewhat randomly, as follows.
+-- 1) Pick random number in range (generated initially b/c we need IO)
+-- 2) If last barrier (closest to right side of screen) is
+-- beyond that random number, we add another barrier to the sequence.
+spawnBarrier :: Game -> Game
+spawnBarrier g =
+  let (r:rs) = g^.rands
+  in case viewr $ g^.barriers of
+    EmptyR -> addRandomBarrier g
+    _ :> a -> let x = getBarrierLeftmost a in
+                case (gridWidth - x) > r of
+                  True  -> addRandomBarrier g
+                  False -> g
+
+getBarrierLeftmost :: Barrier -> Int
+getBarrierLeftmost ((V2 x _):_) = x
+
+getBarrierRightmost :: Barrier -> Int
+getBarrierRightmost b = let (V2 x _) = last b in x
+
+-- | Add random barrier (constrained random width/height)
+-- Note: In (V4 w x y z), w x is bottom left, y z is top right
+addRandomBarrier :: Game -> Game
+addRandomBarrier g =
+  let ((V2 w h):rest) = g^.dimns
+      newBarrier = [V2 (gridWidth + a) (0 + b)
+                    | a <- [0..w-1], b <- [0..h-1]]
+  in g & barriers %~ (|> newBarrier) & dimns .~ rest
+
+-- | Checks to see if the passed-in coordinate is in any
+-- of the barriers
+inBarriers :: Coord -> Game -> Bool
+inBarriers c g = getAny $ foldMap (Any . inBarrier c) (g^.barriers)
+
+-- | Checks to see if the passed-in coordinate is in the
+-- passed-in barriers
+inBarrier :: Coord -> Barrier -> Bool
+inBarrier c b = c `elem` b
 
 -- Initialization functions
 -- | Initialize a game with random stair location
 initGame :: IO Game
 initGame = do
+  rands <- randomRs (distMin, distMax) <$> newStdGen
+  dimns <- randomRs (V2 widthMin heightMin, V2 widthMax heightMax) <$> newStdGen
   let g = Game { _dino = initialDino
                , _dir = Still
                , _barriers = S.empty
+               , _rands = rands
+               , _dimns = dimns
                , _dead = False
                , _score = 0 }
   return g

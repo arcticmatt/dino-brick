@@ -87,6 +87,7 @@ drawGrid g = withBorderStyle BS.unicodeBold
     drawCoord = drawCell . cellAt
     cellAt c
       | c `elem` g^.dino = Dino
+      | inBarriers c g   = Dino
       | otherwise        = Empty
 
 drawCell :: Cell -> Widget Name
@@ -112,13 +113,6 @@ dinoAttr, barrierAttr, emptyAttr :: AttrName
 dinoAttr = "dinoAttr"
 barrierAttr = "barrierAttr"
 emptyAttr = "emptyAttr"
-
--- ui :: Widget ()
--- ui = str "Hello, world!"
---
--- w :: Widget ()
--- w = withBorderStyle BS.ascii $
---         B.border $ center $ str "Hello, world!"
 
 main :: IO ()
 main = do
