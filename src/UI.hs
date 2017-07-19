@@ -5,7 +5,7 @@ import Control.Monad (forever, void)
 -- import Control.Monad.IO.Class (liftIO)
 import Control.Concurrent (threadDelay, forkIO)
 
-import Stairs
+import Dino
 import Controls
 
 import Brick
@@ -29,7 +29,7 @@ data Tick = Tick
 -- if we call this "Name" now.
 type Name = ()
 
-data Cell = FootCell | StairCell | EmptyCell
+data Cell = Dino | Barrier | Empty
 
 -- App definition
 app :: App Game Tick Name
@@ -42,11 +42,6 @@ app = App { appDraw = drawUI
 
 -- Handling events
 handleEvent :: Game -> BrickEvent Name Tick -> EventM Name (Next Game)
-handleEvent g (AppEvent Tick)                       = continue $ step g
-handleEvent g (VtyEvent (V.EvKey V.KRight []))      = continue $ changeRight g
-handleEvent g (VtyEvent (V.EvKey V.KLeft []))       = continue $ changeLeft g
-handleEvent g (VtyEvent (V.EvKey (V.KChar 'a') [])) = continue $ changeRight g
-handleEvent g (VtyEvent (V.EvKey (V.KChar 'd') [])) = continue $ changeLeft g
 handleEvent g (VtyEvent (V.EvKey (V.KChar 'q') [])) = halt g
 handleEvent g (VtyEvent (V.EvKey V.KEsc []))        = halt g
 handleEvent g _ = continue g
@@ -78,31 +73,29 @@ drawGameOver isDead =
      then withAttr gameOverAttr $ C.hCenter $ str "GAME OVER"
      else emptyWidget
 
+-- Mostly copied from snake example
 drawGrid :: Game -> Widget Name
 drawGrid g = withBorderStyle BS.unicodeBold
-  $ B.borderWithLabel (str "stairs")
+  $ B.borderWithLabel (str "dino")
   $ vBox rows
   where
     rows = [hBox $ cellsInRow r | r <- [gridHeight - 1,gridHeight - 2..0]]
     cellsInRow y = [drawCoord (V2 x y) | x <- [0..gridWidth - 1]]
     drawCoord = drawCell . cellAt
-    cellAt c
-      | isFeet c g   = FootCell -- order kinda matters (if we want diff colors)
-      | isStairs c g = StairCell
-      | otherwise    = EmptyCell
+    cellAt c = Empty -- TODO: add other cells
 
 drawCell :: Cell -> Widget Name
-drawCell FootCell = withAttr footAttr cw
-drawCell StairCell = withAttr stairAttr cw
-drawCell EmptyCell = withAttr emptyAttr cw
+drawCell Dino    = withAttr dinoAttr cw
+drawCell Barrier = withAttr barrierAttr cw
+drawCell Empty   = withAttr emptyAttr cw
 
 cw :: Widget Name
 cw = str "  "
 
 theMap :: AttrMap
 theMap = attrMap V.defAttr
- [ (footAttr, V.white `on` V.white)
- , (stairAttr, V.green `on` V.green)
+ [ (dinoAttr, V.white `on` V.white)
+ , (barrierAttr, V.green `on` V.green)
  , (emptyAttr, V.blue `on` V.blue) -- TODO: change/remove
  , (gameOverAttr, fg V.red `V.withStyle` V.bold)
  ]
@@ -110,9 +103,9 @@ theMap = attrMap V.defAttr
 gameOverAttr :: AttrName
 gameOverAttr = "gameOver"
 
-footAttr, stairAttr, emptyAttr :: AttrName
-footAttr = "footAttr"
-stairAttr = "stairAttr"
+dinoAttr, barrierAttr, emptyAttr :: AttrName
+dinoAttr = "dinoAttr"
+barrierAttr = "barrierAttr"
 emptyAttr = "emptyAttr"
 
 -- ui :: Widget ()
@@ -127,6 +120,6 @@ main = do
   chan <- newBChan 10
   forkIO $ forever $ do
     writeBChan chan Tick
-    threadDelay 40000
+    threadDelay 100000
   g <- initGame
   void $ customMain (V.mkVty V.defaultConfig) (Just chan) app g

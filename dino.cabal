@@ -1,4 +1,4 @@
-name:                stairs
+name:                dino
 version:             0.1.0.0
 -- synopsis:
 -- description:
@@ -13,10 +13,10 @@ build-type:          Simple
 cabal-version:       >=1.10
 extra-source-files:  README.md
 
-executable stairs
+executable dino
   hs-source-dirs:      src
   main-is:             Main.hs
-  other-modules:       Stairs
+  other-modules:       Dino
                      , UI
                      , Controls
   ghc-options:         -threaded -Wall -fno-warn-unused-do-bind -O3
