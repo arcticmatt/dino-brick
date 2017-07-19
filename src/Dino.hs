@@ -52,8 +52,8 @@ maxHeight = 5
 
 -- Spawning min/max distances
 distMin, distMax :: Int
-distMin = 4
-distMax = 20
+distMin = 1
+distMax = 30
 
 -- Barrier min/max width/height
 widthMin, widthMax, heightMin, heightMax :: Int
@@ -142,7 +142,7 @@ spawnBarrier g =
     EmptyR -> addRandomBarrier g
     _ :> a -> let x = getBarrierLeftmost a in
                 case (gridWidth - x) > r of
-                  True  -> addRandomBarrier g
+                  True  -> addRandomBarrier g & rands .~ rs
                   False -> g
 
 getBarrierLeftmost :: Barrier -> Int

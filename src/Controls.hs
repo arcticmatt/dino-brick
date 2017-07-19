@@ -7,10 +7,10 @@ import Dino
 import Lens.Micro ((&), (.~), (%~), (^.))
 
 handleUp :: Game -> Game
-handleUp = changeDir Up
+handleUp g = if g^.dir == Still then changeDir Up g else g
 
 handleDown :: Game -> Game
-handleDown = changeDir Down
+handleDown g = if g^.dir == Still then changeDir Down g else g
 
 changeDir :: Direction -> Game -> Game
 changeDir d g = g & dir .~ d
