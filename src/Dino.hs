@@ -3,14 +3,15 @@
 
 module Dino where
 
+import Control.Applicative ((<|>))
+import Control.Monad (guard)
+import Data.Maybe (fromMaybe)
 import Lens.Micro.TH (makeLenses)
-import Lens.Micro.Type
 import Lens.Micro ((&), (.~), (%~), (^.))
-import Linear.V2 (V2(..), _y)
+import Linear.V2 (V2(..))
 import System.Random (Random(..), randomRs, newStdGen)
 import qualified Data.Sequence as S
 import Data.Sequence(ViewR(..), ViewL(..), viewr, viewl, (|>))
-import Data.Ix (inRange)
 import Data.Monoid (Any(..), getAny)
 
 -- Types
@@ -64,9 +65,37 @@ heightMax = 3
 
 -- Functions
 -- | Step forward in time.
--- TODO:
+-- TODO: gameover
 step :: Game -> Game
-step = move . spawnBarrier . deleteBarrier
+step g = fromMaybe g $ do
+  guard $ not (g^.dead)
+  return . fromMaybe (move . spawnBarrier . deleteBarrier $ g) $ die g
+
+-- | Possibly die if next dino position is disallowed.
+die :: Game -> Maybe Game
+die g = do
+  guard $ die' g
+  return $ g & dead .~ True
+
+-- Only check leftmost barrier
+die' :: Game -> Bool
+die' g = let nextD = nextDino g
+             nextB = nextBarrier g
+         in case nextB of
+           Nothing -> False
+           Just b  -> getAny $ foldMap (Any . (flip inBarrier) b) nextD
+
+-- | Hacky way to get the next dino. Just move it
+-- and see what happens
+-- TODO: is this too slow?
+nextDino :: Game -> Dino
+nextDino g = (moveDino g)^.dino
+
+-- | Hacky way to get the next (leftmost) barrier.
+nextBarrier :: Game -> Maybe Barrier
+nextBarrier g = case viewl $ (moveBarriers g)^.barriers of
+  EmptyL -> Nothing
+  b :< _ -> Just b
 
 -- Moving functions
 -- | Move everything on the screen
@@ -146,9 +175,11 @@ spawnBarrier g =
                   False -> g
 
 getBarrierLeftmost :: Barrier -> Int
+getBarrierLeftmost [] = error "empty barrier"
 getBarrierLeftmost ((V2 x _):_) = x
 
 getBarrierRightmost :: Barrier -> Int
+getBarrierRightmost [] = error "empty barrier"
 getBarrierRightmost b = let (V2 x _) = last b in x
 
 -- | Add random barrier (constrained random width/height)
@@ -174,13 +205,13 @@ inBarrier c b = c `elem` b
 -- | Initialize a game with random stair location
 initGame :: IO Game
 initGame = do
-  rands <- randomRs (distMin, distMax) <$> newStdGen
-  dimns <- randomRs (V2 widthMin heightMin, V2 widthMax heightMax) <$> newStdGen
+  randoms <- randomRs (distMin, distMax) <$> newStdGen
+  dimensions <- randomRs (V2 widthMin heightMin, V2 widthMax heightMax) <$> newStdGen
   let g = Game { _dino = initialDino
                , _dir = Still
                , _barriers = S.empty
-               , _rands = rands
-               , _dimns = dimns
+               , _rands = randoms
+               , _dimns = dimensions
                , _dead = False
                , _score = 0 }
   return g

@@ -87,7 +87,7 @@ drawGrid g = withBorderStyle BS.unicodeBold
     drawCoord = drawCell . cellAt
     cellAt c
       | c `elem` g^.dino = Dino
-      | inBarriers c g   = Dino
+      | inBarriers c g   = Barrier
       | otherwise        = Empty
 
 drawCell :: Cell -> Widget Name
