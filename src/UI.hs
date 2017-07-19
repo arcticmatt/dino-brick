@@ -4,6 +4,8 @@ module UI where
 import Control.Monad (forever, void)
 import Control.Monad.IO.Class (liftIO)
 import Control.Concurrent (threadDelay, forkIO)
+import Data.IORef
+import System.IO.Unsafe (unsafePerformIO)
 
 import Dino
 import Controls
@@ -31,6 +33,10 @@ type Name = ()
 
 data Cell = Dino | Barrier | Empty
 
+-- Constants
+minFrameRate :: Int
+minFrameRate = 30000
+
 -- App definition
 app :: App Game Tick Name
 app = App { appDraw = drawUI
@@ -47,7 +53,8 @@ handleEvent g (VtyEvent (V.EvKey V.KUp []))         = continue $ handleUp g
 handleEvent g (VtyEvent (V.EvKey V.KDown []))       = continue $ handleDown g
 handleEvent g (VtyEvent (V.EvKey (V.KChar 'q') [])) = halt g
 handleEvent g (VtyEvent (V.EvKey V.KEsc []))        = halt g
-handleEvent g (VtyEvent (V.EvKey (V.KChar 'r') [])) = liftIO (initGame) >>= continue
+handleEvent _ (VtyEvent (V.EvKey (V.KChar 'r') [])) =
+  liftIO (writeIORef counter 0 >> initGame) >>= continue
 handleEvent g _ = continue g
 
 -- Drawing
@@ -80,7 +87,7 @@ drawGameOver isDead =
 -- Mostly copied from snake example
 drawGrid :: Game -> Widget Name
 drawGrid g = withBorderStyle BS.unicodeBold
-  $ B.borderWithLabel (str "dino")
+  $ B.borderWithLabel (str " ||| dino ||| ")
   $ vBox rows
   where
     rows = [hBox $ cellsInRow r | r <- [gridHeight - 1,gridHeight - 2..0]]
@@ -103,7 +110,7 @@ theMap :: AttrMap
 theMap = attrMap V.defAttr
  [ (dinoAttr, V.blue `on` V.blue)
  , (barrierAttr, V.green `on` V.green)
- , (emptyAttr, V.white `on` V.white) -- TODO: change/remove
+ -- , (emptyAttr, V.white `on` V.white) -- TODO: change/remove
  , (gameOverAttr, fg V.red `V.withStyle` V.bold)
  ]
 
@@ -115,11 +122,17 @@ dinoAttr = "dinoAttr"
 barrierAttr = "barrierAttr"
 emptyAttr = "emptyAttr"
 
+counter :: IORef Int
+{-# NOINLINE counter #-}
+counter = unsafePerformIO (newIORef 0)
+
 main :: IO ()
 main = do
   chan <- newBChan 10
   forkIO $ forever $ do
+    modifyIORef counter (+1)
+    c' <- readIORef counter
     writeBChan chan Tick
-    threadDelay 70000
+    threadDelay (max (70000 - c' * 10) 30000)
   g <- initGame
   void $ customMain (V.mkVty V.defaultConfig) (Just chan) app g

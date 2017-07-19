@@ -22,6 +22,7 @@ data Game = Game
   , _rands          :: [Int]          -- ^ random numbers for spawning
   , _dimns          :: [Dimension]    -- ^ random barrier dimensions
   , _dead           :: Bool           -- ^ game over flag
+  , _scoreMod       :: Int            -- ^ controls how often we update the score
   , _score          :: Int            -- ^ score
   } deriving (Show)
 
@@ -53,7 +54,7 @@ maxHeight = 5
 
 -- Spawning min/max distances
 distMin, distMax :: Int
-distMin = 5
+distMin = 10
 distMax = 20
 
 -- Barrier min/max width/height
@@ -62,6 +63,10 @@ widthMin = 1
 widthMax = 3
 heightMin = 1
 heightMax = 3
+
+-- Update score every three frames
+constScoreMod :: Int
+constScoreMod = 2
 
 -- Functions
 -- | Step forward in time.
@@ -72,7 +77,10 @@ step g = fromMaybe g $ do
   return . fromMaybe (incScore . move . spawnBarrier . deleteBarrier $ g) $ die g
 
 incScore :: Game -> Game
-incScore g = g & score %~ (+1)
+incScore g = case g^.scoreMod of
+  0 -> g & score %~ (+1) & scoreMod %~ incAndMod
+  _ -> g & scoreMod %~ incAndMod
+  where incAndMod = (\x -> (x + 1) `mod` constScoreMod)
 
 -- | Possibly die if next dino position is disallowed.
 die :: Game -> Maybe Game
@@ -214,6 +222,7 @@ initGame = do
                , _rands = randoms
                , _dimns = dimensions
                , _dead = False
+               , _scoreMod = 0
                , _score = 0 }
   return g
 
