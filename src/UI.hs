@@ -42,6 +42,9 @@ app = App { appDraw = drawUI
 
 -- Handling events
 handleEvent :: Game -> BrickEvent Name Tick -> EventM Name (Next Game)
+handleEvent g (AppEvent Tick)                       = continue $ step g
+handleEvent g (VtyEvent (V.EvKey V.KUp []))         = continue $ handleUp g
+handleEvent g (VtyEvent (V.EvKey V.KDown []))       = continue $ handleDown g
 handleEvent g (VtyEvent (V.EvKey (V.KChar 'q') [])) = halt g
 handleEvent g (VtyEvent (V.EvKey V.KEsc []))        = halt g
 handleEvent g _ = continue g
@@ -82,7 +85,9 @@ drawGrid g = withBorderStyle BS.unicodeBold
     rows = [hBox $ cellsInRow r | r <- [gridHeight - 1,gridHeight - 2..0]]
     cellsInRow y = [drawCoord (V2 x y) | x <- [0..gridWidth - 1]]
     drawCoord = drawCell . cellAt
-    cellAt c = Empty -- TODO: add other cells
+    cellAt c
+      | c `elem` g^.dino = Dino
+      | otherwise        = Empty
 
 drawCell :: Cell -> Widget Name
 drawCell Dino    = withAttr dinoAttr cw
@@ -94,9 +99,9 @@ cw = str "  "
 
 theMap :: AttrMap
 theMap = attrMap V.defAttr
- [ (dinoAttr, V.white `on` V.white)
+ [ (dinoAttr, V.blue `on` V.blue)
  , (barrierAttr, V.green `on` V.green)
- , (emptyAttr, V.blue `on` V.blue) -- TODO: change/remove
+ , (emptyAttr, V.white `on` V.white) -- TODO: change/remove
  , (gameOverAttr, fg V.red `V.withStyle` V.bold)
  ]
 
@@ -120,6 +125,6 @@ main = do
   chan <- newBChan 10
   forkIO $ forever $ do
     writeBChan chan Tick
-    threadDelay 100000
+    threadDelay 70000
   g <- initGame
   void $ customMain (V.mkVty V.defaultConfig) (Just chan) app g
