@@ -53,8 +53,8 @@ maxHeight = 5
 
 -- Spawning min/max distances
 distMin, distMax :: Int
-distMin = 1
-distMax = 30
+distMin = 5
+distMax = 20
 
 -- Barrier min/max width/height
 widthMin, widthMax, heightMin, heightMax :: Int
@@ -65,11 +65,14 @@ heightMax = 3
 
 -- Functions
 -- | Step forward in time.
--- TODO: gameover
+-- Increment score every tick.
 step :: Game -> Game
 step g = fromMaybe g $ do
   guard $ not (g^.dead)
-  return . fromMaybe (move . spawnBarrier . deleteBarrier $ g) $ die g
+  return . fromMaybe (incScore . move . spawnBarrier . deleteBarrier $ g) $ die g
+
+incScore :: Game -> Game
+incScore g = g & score %~ (+1)
 
 -- | Possibly die if next dino position is disallowed.
 die :: Game -> Maybe Game
@@ -77,13 +80,12 @@ die g = do
   guard $ die' g
   return $ g & dead .~ True
 
--- Only check leftmost barrier
+-- Check ALL barriers
+-- TODO: maybe adjust to check less
 die' :: Game -> Bool
 die' g = let nextD = nextDino g
-             nextB = nextBarrier g
-         in case nextB of
-           Nothing -> False
-           Just b  -> getAny $ foldMap (Any . (flip inBarrier) b) nextD
+             nextB = nextBarriers g
+          in getAny $ foldMap (Any . (flip inBarriers) nextB) nextD
 
 -- | Hacky way to get the next dino. Just move it
 -- and see what happens
@@ -91,11 +93,10 @@ die' g = let nextD = nextDino g
 nextDino :: Game -> Dino
 nextDino g = (moveDino g)^.dino
 
--- | Hacky way to get the next (leftmost) barrier.
-nextBarrier :: Game -> Maybe Barrier
-nextBarrier g = case viewl $ (moveBarriers g)^.barriers of
-  EmptyL -> Nothing
-  b :< _ -> Just b
+-- | Get next barriers (only consider currently existing barriers,
+-- i.e. don't consider spawning a new barrier)
+nextBarriers :: Game -> S.Seq Barrier
+nextBarriers g = (moveBarriers g)^.barriers
 
 -- Moving functions
 -- | Move everything on the screen
@@ -193,8 +194,8 @@ addRandomBarrier g =
 
 -- | Checks to see if the passed-in coordinate is in any
 -- of the barriers
-inBarriers :: Coord -> Game -> Bool
-inBarriers c g = getAny $ foldMap (Any . inBarrier c) (g^.barriers)
+inBarriers :: Coord -> S.Seq Barrier -> Bool
+inBarriers c bs = getAny $ foldMap (Any . inBarrier c) bs
 
 -- | Checks to see if the passed-in coordinate is in the
 -- passed-in barriers
