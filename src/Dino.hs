@@ -34,6 +34,7 @@ type Dimension = V2 Int
 data Direction =
     Up
   | Down
+  | Duck
   | Still
   deriving (Eq, Show)
 
@@ -44,8 +45,11 @@ gridWidth, gridHeight :: Int
 gridWidth = 40
 gridHeight = 20
 
-initialDino :: Dino
-initialDino = [V2 5 0, V2 5 1]
+standingDino :: Dino
+standingDino = [V2 5 0, V2 5 1]
+
+duckingDino :: Dino
+duckingDino = [V2 5 0]
 
 -- Max height the dino can reach
 maxHeight :: Int
@@ -73,13 +77,17 @@ constScoreMod = 2
 step :: Game -> Game
 step g = fromMaybe g $ do
   guard $ not (g^.dead)
-  return . fromMaybe (incScore . move . spawnBarrier . deleteBarrier $ g) $ die g
+  return $ fromMaybe (step' g) (die g)
+
+-- | What to do if we are not dead.
+step' :: Game -> Game
+step' = incScore . move . spawnBarrier . deleteBarrier . adjustStanding
 
 incScore :: Game -> Game
 incScore g = case g^.scoreMod of
   0 -> g & score %~ (+1) & scoreMod %~ incAndMod
   _ -> g & scoreMod %~ incAndMod
-  where incAndMod = (\x -> (x + 1) `mod` constScoreMod)
+  where incAndMod x = (x + 1) `mod` constScoreMod
 
 -- | Possibly die if next dino position is disallowed.
 die :: Game -> Maybe Game
@@ -92,18 +100,26 @@ die g = do
 die' :: Game -> Bool
 die' g = let nextD = nextDino g
              nextB = nextBarriers g
-          in getAny $ foldMap (Any . (flip inBarriers) nextB) nextD
+          in getAny $ foldMap (Any . flip inBarriers nextB) nextD
 
 -- | Hacky way to get the next dino. Just move it
 -- and see what happens
 -- TODO: is this too slow?
 nextDino :: Game -> Dino
-nextDino g = (moveDino g)^.dino
+nextDino g = moveDino g^.dino
 
 -- | Get next barriers (only consider currently existing barriers,
 -- i.e. don't consider spawning a new barrier)
 nextBarriers :: Game -> S.Seq Barrier
-nextBarriers g = (moveBarriers g)^.barriers
+nextBarriers g = moveBarriers g^.barriers
+
+-- | Adjust dino's standing position (i.e. is he ducking?)
+-- If the direction is ducking, only make the dino stand if he is on the ground.
+adjustStanding :: Game -> Game
+adjustStanding g = let d = g^.dir in
+  case d of
+    Duck -> if isDinoBottom g then g & dino .~ duckingDino else g
+    _    -> if isDinoBottom g then g & dino .~ standingDino else g
 
 -- Moving functions
 -- | Move everything on the screen
@@ -114,20 +130,23 @@ move = moveDino . moveBarriers
 -- | Moves dino based on its current direction. If it reaches
 -- the bottom of the grid, stop it. If it reaches the
 -- max height, set its direction to Down.
+-- Note: in order to be able to jump without missing a frame, we set the dino's
+-- direction to Still ONE FRAME BEFORE it reaches the ground.
+-- In order to be able to duck without missing a frame, we allow the duck's
+-- direction to go from DOWN to DUCK.
 moveDino :: Game -> Game
 moveDino g = let d = g^.dir in
   case d of
-    Up   -> case shouldStopDino d g of
-              True  -> setDinoDir Down g
-              False -> moveDino' 1 g
-    Down -> case shouldStopDino d g of
-              True  -> setDinoDir Still g
-              False -> moveDino' (-1) g
+    Up   -> if shouldStopDino d g then setDinoDir Down g else moveDino' 1 g
+    Down -> if shouldStopDino d g then setDinoDir Still g else
+              (let gNext = moveDino' (-1) g in
+                if isDinoBottom gNext then setDinoDir Still gNext else gNext)
+    Duck -> if shouldStopDino d g then g else moveDino' (-1) g
     _    -> g
 
 -- | Moves dino up or down
 moveDino' :: Int -> Game -> Game
-moveDino' amt g = g & dino %~ (fmap (+(V2 0 amt)))
+moveDino' amt g = g & dino %~ fmap (+ V2 0 amt)
 
 setDinoDir :: Direction -> Game -> Game
 setDinoDir d g = g & dir .~ d
@@ -136,9 +155,13 @@ setDinoDir d g = g & dir .~ d
 -- the passed-in direction
 shouldStopDino :: Direction -> Game -> Bool
 shouldStopDino d g = case d of
-  Down -> dinoBottom g <= 0
+  Down -> isDinoBottom g
+  Duck -> isDinoBottom g
   Up   -> dinoBottom g >= maxHeight
   _    -> False
+
+isDinoBottom :: Game -> Bool
+isDinoBottom g = dinoBottom g <= 0
 
 -- | Gets the dino's bottom ypos
 dinoBottom :: Game -> Int
@@ -150,11 +173,11 @@ dinoBottom g =
 -- Barrier functions
 -- | Move all the barriers
 moveBarriers :: Game -> Game
-moveBarriers g = g & barriers %~ (fmap moveBarrier)
+moveBarriers g = g & barriers %~ fmap moveBarrier
 
 -- | Move single barrier left
 moveBarrier :: Barrier -> Barrier
-moveBarrier = fmap (+ (V2 (-1) 0))
+moveBarrier = fmap (+ V2 (-1) 0)
 
 -- | Delete barrier if it has gone off the left side
 deleteBarrier :: Game -> Game
@@ -162,10 +185,7 @@ deleteBarrier g =
   case viewl $ g^.barriers of
     EmptyL  -> g
     a :< as -> let x = getBarrierRightmost a in
-                 case x <= 0 of
-                   True  -> g & barriers .~ as  -- remove
-                   False -> g                  -- do nothing
-
+                 (if x <= 0 then g & barriers .~ as else g)
 
 -- | Spawn new barrier (if necessary).
 -- We spawn barriers somewhat randomly, as follows.
@@ -178,13 +198,11 @@ spawnBarrier g =
   in case viewr $ g^.barriers of
     EmptyR -> addRandomBarrier g
     _ :> a -> let x = getBarrierLeftmost a in
-                case (gridWidth - x) > r of
-                  True  -> addRandomBarrier g & rands .~ rs
-                  False -> g
+                if (gridWidth - x) > r then addRandomBarrier g & rands .~ rs else g
 
 getBarrierLeftmost :: Barrier -> Int
 getBarrierLeftmost [] = error "empty barrier"
-getBarrierLeftmost ((V2 x _):_) = x
+getBarrierLeftmost (V2 x _:_) = x
 
 getBarrierRightmost :: Barrier -> Int
 getBarrierRightmost [] = error "empty barrier"
@@ -194,7 +212,7 @@ getBarrierRightmost b = let (V2 x _) = last b in x
 -- Note: In (V4 w x y z), w x is bottom left, y z is top right
 addRandomBarrier :: Game -> Game
 addRandomBarrier g =
-  let ((V2 w h):rest) = g^.dimns
+  let (V2 w h:rest) = g^.dimns
       newBarrier = [V2 (gridWidth + a) (0 + b)
                     | a <- [0..w-1], b <- [0..h-1]]
   in g & barriers %~ (|> newBarrier) & dimns .~ rest
@@ -215,7 +233,7 @@ initGame :: IO Game
 initGame = do
   randomDists <- randomRs (distMin, distMax) <$> newStdGen
   dimensions  <- randomRs (V2 widthMin heightMin, V2 widthMax heightMax) <$> newStdGen
-  let g = Game { _dino = initialDino
+  let g = Game { _dino = standingDino
                , _dir = Still
                , _barriers = S.empty
                , _rands = randomDists

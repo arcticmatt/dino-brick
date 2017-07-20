@@ -134,5 +134,6 @@ playGame = do
     c' <- readIORef counter
     writeBChan chan Tick
     threadDelay (max (70000 - c' * 10) 30000)
+    -- threadDelay 1000000
   g <- initGame
   customMain (V.mkVty V.defaultConfig) (Just chan) app g

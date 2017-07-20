@@ -2,15 +2,15 @@
 
 module Controls where
 
-import Dino
+import Dino (Game(..), Direction(..), dir)
 
 import Lens.Micro ((&), (.~), (^.))
 
 handleUp :: Game -> Game
-handleUp g = if g^.dir == Still then changeDir Up g else g
+handleUp g = if g^.dir == Still || g^.dir == Duck then changeDir Up g else g
 
 handleDown :: Game -> Game
-handleDown g = if g^.dir == Still then changeDir Down g else g
+handleDown g = if g^.dir == Still || g^.dir == Down then changeDir Duck g else g
 
 changeDir :: Direction -> Game -> Game
 changeDir d g = g & dir .~ d
