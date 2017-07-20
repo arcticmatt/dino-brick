@@ -3,7 +3,6 @@
 
 module Dino where
 
-import Control.Applicative ((<|>))
 import Control.Monad (guard)
 import Data.Maybe (fromMaybe)
 import Lens.Micro.TH (makeLenses)
@@ -214,12 +213,12 @@ inBarrier c b = c `elem` b
 -- | Initialize a game with random stair location
 initGame :: IO Game
 initGame = do
-  randoms <- randomRs (distMin, distMax) <$> newStdGen
-  dimensions <- randomRs (V2 widthMin heightMin, V2 widthMax heightMax) <$> newStdGen
+  randomDists <- randomRs (distMin, distMax) <$> newStdGen
+  dimensions  <- randomRs (V2 widthMin heightMin, V2 widthMax heightMax) <$> newStdGen
   let g = Game { _dino = initialDino
                , _dir = Still
                , _barriers = S.empty
-               , _rands = randoms
+               , _rands = randomDists
                , _dimns = dimensions
                , _dead = False
                , _scoreMod = 0

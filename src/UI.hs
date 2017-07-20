@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 module UI where
 
-import Control.Monad (forever, void)
+import Control.Monad (forever)
 import Control.Monad.IO.Class (liftIO)
 import Control.Concurrent (threadDelay, forkIO)
 import Data.IORef
@@ -126,8 +126,8 @@ counter :: IORef Int
 {-# NOINLINE counter #-}
 counter = unsafePerformIO (newIORef 0)
 
-main :: IO ()
-main = do
+playGame :: IO Game
+playGame = do
   chan <- newBChan 10
   forkIO $ forever $ do
     modifyIORef counter (+1)
@@ -135,4 +135,4 @@ main = do
     writeBChan chan Tick
     threadDelay (max (70000 - c' * 10) 30000)
   g <- initGame
-  void $ customMain (V.mkVty V.defaultConfig) (Just chan) app g
+  customMain (V.mkVty V.defaultConfig) (Just chan) app g

@@ -4,7 +4,7 @@ module Controls where
 
 import Dino
 
-import Lens.Micro ((&), (.~), (%~), (^.))
+import Lens.Micro ((&), (.~), (^.))
 
 handleUp :: Game -> Game
 handleUp g = if g^.dir == Still then changeDir Up g else g

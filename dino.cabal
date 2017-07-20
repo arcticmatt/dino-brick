@@ -13,14 +13,11 @@ build-type:          Simple
 cabal-version:       >=1.10
 extra-source-files:  README.md
 
-executable dino
+library
   hs-source-dirs:      src
-  main-is:             Main.hs
-  other-modules:       Dino
-                     , UI
+  exposed-modules:     Dino
                      , Controls
-  ghc-options:         -threaded -Wall -fno-warn-unused-do-bind -O3
-  default-language:    Haskell2010
+                     , UI
   build-depends:       base >= 4.7 && < 5
                      , brick
                      , containers
@@ -29,3 +26,12 @@ executable dino
                      , microlens-th
                      , random
                      , vty
+  default-language:    Haskell2010
+
+executable dino
+  hs-source-dirs:      app
+  main-is:             Main.hs
+  ghc-options:         -threaded -Wall -fno-warn-unused-do-bind -O3
+  build-depends:       base >= 4.7 && < 5
+                     , dino
+  default-language:    Haskell2010
