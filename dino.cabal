@@ -34,4 +34,7 @@ executable dino
   ghc-options:         -threaded -Wall -fno-warn-unused-do-bind -O3
   build-depends:       base >= 4.7 && < 5
                      , dino
+                     , directory
+                     , filepath
+                     , optparse-applicative
   default-language:    Haskell2010
