@@ -10,7 +10,7 @@ import Data.Maybe (fromMaybe)
 import Lens.Micro.TH (makeLenses)
 import Lens.Micro ((&), (.~), (%~), (^.))
 import Linear.V2 (V2(..))
-import System.Random (Random(..), StdGen(..), randomRs, newStdGen)
+import System.Random (Random(..), randomRs, newStdGen)
 import qualified Data.Sequence as S
 import Data.Sequence(ViewR(..), ViewL(..), viewr, viewl, (|>))
 import Data.Monoid (Any(..), getAny)
@@ -146,7 +146,7 @@ setDiffMod dm g = case g^.level of
 
 -- | Convert score to difficulty level
 scoreToDiff :: Score -> Difficulty
-scoreToDiff score = let l = score `div` levelAmount
+scoreToDiff sc = let l = sc `div` levelAmount
                     in fromMaybe D4 (M.lookup l scoreMap)
 
 -- | Increase the game's (difficulty) level. We'll increase it every

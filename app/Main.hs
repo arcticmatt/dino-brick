@@ -18,8 +18,14 @@ opts :: Parser Opts
 opts = Opts
   <$> switch (long "high-score" <> short 's' <> help "Print highscore and exit")
 
+dinoHeader :: String
+dinoHeader = "DINO - a subpar ripoff of chrome's infinite scroller"
+
+dinoFooter :: String
+dinoFooter = "CONTROLS - WASD or arrow keys to move. p to pause, r to restart, q to quit"
+
 fullOpts :: ParserInfo Opts
-fullOpts = info (helper <*> opts) (fullDesc <> header "dino - a subpar ripoff of chrome's infinite scroller")
+fullOpts = info (helper <*> opts) (fullDesc <> header dinoHeader <> footer dinoFooter)
 
 -- Basically copied from tetris example
 main :: IO ()
