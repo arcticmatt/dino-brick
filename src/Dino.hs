@@ -84,7 +84,7 @@ makeLenses ''Game
 -- Constants
 gridWidth, gridHeight :: Int
 gridWidth = 40
-gridHeight = 20
+gridHeight = 15
 
 standingDino :: Dino
 standingDino = [V2 5 0, V2 5 1]
@@ -299,7 +299,7 @@ addRandomBarrier :: Game -> Game
 addRandomBarrier g =
   let (p:ps) = g^.positions
   in case p of
-    Sky    -> addRandomGroundBarrier g & positions .~ ps
+    Sky    -> addRandomSkyBarrier g & positions .~ ps
     Ground -> addRandomGroundBarrier g & positions .~ ps
 
 -- | Add random ground barrier (ypos is 0)
