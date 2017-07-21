@@ -19,10 +19,10 @@ opts = Opts
   <$> switch (long "high-score" <> short 's' <> help "Print highscore and exit")
 
 dinoHeader :: String
-dinoHeader = "DINO - a subpar ripoff of chrome's infinite scroller"
+dinoHeader = "Dino - a subpar ripoff of chrome's infinite scroller"
 
 dinoFooter :: String
-dinoFooter = "CONTROLS - WASD or arrow keys to move. p to pause, r to restart, q to quit"
+dinoFooter = "Controls - WS or arrow keys to move. p to pause, r to restart, q to quit"
 
 fullOpts :: ParserInfo Opts
 fullOpts = info (helper <*> opts) (fullDesc <> header dinoHeader <> footer dinoFooter)
