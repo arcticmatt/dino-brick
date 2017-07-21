@@ -28,6 +28,7 @@ data Game = Game
   , _paused         :: Bool           -- ^ paused flag
   , _scoreMod       :: Int            -- ^ controls how often we update the score
   , _score          :: Score          -- ^ score
+  , _highscore      :: Score          -- ^ highscore of current sesh
   } deriving (Show)
 
 type Score = Int
@@ -42,6 +43,8 @@ data DifficultyMap = DifficultyMap
   , _d2 :: DiffMod
   , _d3 :: DiffMod
   , _d4 :: DiffMod
+  , _d5 :: DiffMod
+  , _d6 :: DiffMod
   } deriving (Eq, Show)
 
 data Direction =
@@ -57,6 +60,8 @@ data Difficulty =
   | D2
   | D3
   | D4
+  | D5
+  | D6
   deriving (Eq, Ord, Show, Enum)
 
 data Position = Ground | Sky deriving (Eq, Show)
@@ -104,7 +109,7 @@ constScoreMod = 2
 
 -- Increase the difficulty everytime the score goes up by levelAmount.
 levelAmount :: Score
-levelAmount = 50
+levelAmount = 100
 
 scoreMap :: M.Map Int Difficulty
 scoreMap = M.fromList $ zip [0 ..] [D0 ..]
@@ -119,13 +124,18 @@ step g = fromMaybe g $ do
 
 -- | What to do if we are not dead.
 step' :: Game -> Game
-step' = incDifficulty . incScore . move . spawnBarrier . deleteBarrier . adjustStanding
+step' = incDifficulty . setHighScore . incScore . move . spawnBarrier . deleteBarrier . adjustStanding
 
 incScore :: Game -> Game
 incScore g = case g^.scoreMod of
   0 -> g & score %~ (+1) & scoreMod %~ incAndMod
   _ -> g & scoreMod %~ incAndMod
   where incAndMod x = (x + 1) `mod` constScoreMod
+
+setHighScore :: Game -> Game
+setHighScore g = if g^.score > g^.highscore
+                   then g & highscore .~ (g^.score)
+                   else g
 
 -- | Get game's relevant diff mod.
 getDiffMod :: Game -> DiffMod
@@ -135,6 +145,8 @@ getDiffMod g = case g^.level of
   D2 -> g^.diffMap.d2
   D3 -> g^.diffMap.d3
   D4 -> g^.diffMap.d4
+  D5 -> g^.diffMap.d5
+  D6 -> g^.diffMap.d6
 
 -- | Set game's relevant diff mod.
 setDiffMod :: DiffMod -> Game -> Game
@@ -144,11 +156,13 @@ setDiffMod dm g = case g^.level of
   D2 -> g & diffMap.d2 .~ dm
   D3 -> g & diffMap.d3 .~ dm
   D4 -> g & diffMap.d4 .~ dm
+  D5 -> g & diffMap.d5 .~ dm
+  D6 -> g & diffMap.d6 .~ dm
 
 -- | Convert score to difficulty level
 scoreToDiff :: Score -> Difficulty
 scoreToDiff sc = let l = sc `div` levelAmount
-                    in fromMaybe D4 (M.lookup l scoreMap)
+                    in fromMaybe D6 (M.lookup l scoreMap)
 -- scoreToDiff sc = D4
 
 -- | Increase the game's (difficulty) level. We'll increase it every
@@ -285,14 +299,14 @@ addRandomBarrier :: Game -> Game
 addRandomBarrier g =
   let (p:ps) = g^.positions
   in case p of
-    Sky    -> addRandomSkyBarrier g & positions .~ ps
+    Sky    -> addRandomGroundBarrier g & positions .~ ps
     Ground -> addRandomGroundBarrier g & positions .~ ps
 
 -- | Add random ground barrier (ypos is 0)
 -- Height and width of random barrier are the minimum of the current random
 -- coordinate and the current diffmod's height and width.
 -- E.g. at D0, everything will be w=1, h=1
--- and at D4, heights and widths will range from 1 to 3
+-- and at D6, heights and widths will range from 1 to 3
 addRandomGroundBarrier :: Game -> Game
 addRandomGroundBarrier g =
   let (V2 w h:rest) = g^.dimns
@@ -328,8 +342,8 @@ inBarrier c b = c `elem` b
 
 -- Initialization functions
 -- | Initialize a game with random stair location
-initGame :: IO Game
-initGame = do
+initGame :: Score -> IO Game
+initGame hs = do
   dimensions      <- randomRs (V2 widthMin heightMin, V2 widthMax heightMax) <$> newStdGen
   randomPositions <- flip weightedList ((Sky, 1 % 4) : replicate 3 (Ground, 1 % 4)) <$> newStdGen
   dMap            <- difficultyMap
@@ -343,22 +357,26 @@ initGame = do
                , _paused    = False
                , _dead      = False
                , _scoreMod  = 0
-               , _score     = 0 }
+               , _score     = 0
+               , _highscore = hs
+               }
   return g
 
 difficultyMap :: IO DifficultyMap
 difficultyMap = do
-  dists1 <- randomRs (20, 25) <$> newStdGen
-  dists2 <- randomRs (17, 22) <$> newStdGen
-  dists3 <- randomRs (15, 20) <$> newStdGen
-  dists4 <- randomRs (10, 17) <$> newStdGen
-  dists5 <- randomRs (10, 15) <$> newStdGen
+  dists0 <- randomRs (20, 25) <$> newStdGen
+  dists1 <- randomRs (17, 22) <$> newStdGen
+  dists2 <- randomRs (16, 20) <$> newStdGen
+  dists3 <- randomRs (15, 18) <$> newStdGen
+  dists4 <- randomRs (12, 16) <$> newStdGen
   return $ DifficultyMap
-    (DiffMod 1 1 dists1)
-    (DiffMod 1 2 dists2)
-    (DiffMod 2 2 dists3)
-    (DiffMod 2 3 dists4)
-    (DiffMod 4 4 dists5)
+    (DiffMod 1 1 dists0)
+    (DiffMod 1 2 dists1)
+    (DiffMod 2 2 dists2)
+    (DiffMod 2 3 dists3)
+    (DiffMod 3 3 dists4) -- same dists, different widths/heights
+    (DiffMod 3 4 dists4)
+    (DiffMod 4 4 dists4)
 
 weightedList :: RandomGen g => g -> [(a, Rational)] -> [a]
 weightedList gen weights = evalRand m gen

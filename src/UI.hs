@@ -56,8 +56,8 @@ handleEvent g (VtyEvent (V.EvKey (V.KChar 's') [])) = continue $ handleDown g
 handleEvent g (VtyEvent (V.EvKey (V.KChar 'p') [])) = continue $ pause g
 handleEvent g (VtyEvent (V.EvKey (V.KChar 'q') [])) = halt g
 handleEvent g (VtyEvent (V.EvKey V.KEsc []))        = halt g
-handleEvent _ (VtyEvent (V.EvKey (V.KChar 'r') [])) =
-  liftIO (writeIORef counter 0 >> initGame) >>= continue
+handleEvent g (VtyEvent (V.EvKey (V.KChar 'r') [])) =
+  liftIO (writeIORef counter 0 >> initGame (g^.highscore)) >>= continue
 handleEvent g _ = continue g
 
 -- Drawing
@@ -136,7 +136,7 @@ playGame = do
     modifyIORef counter (+1)
     c' <- readIORef counter
     writeBChan chan Tick
-    threadDelay (max (70000 - c' * 10) 30000)
-    -- threadDelay 30000
-  g <- initGame
+    threadDelay (max (70000 - c' * 10) 35000)
+    -- threadDelay 35000
+  g <- initGame 0
   customMain (V.mkVty V.defaultConfig) (Just chan) app g

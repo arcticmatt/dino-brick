@@ -33,7 +33,7 @@ main = do
   (Opts hs) <- execParser fullOpts
   when hs (getHighScore >>= printM >> exitSuccess) -- show high score and exit
   g <- playGame
-  handleEndGame (_score g)
+  handleEndGame (_highscore g)
 
 -- Copied from tetris example
 handleEndGame :: Int -> IO ()
@@ -45,7 +45,7 @@ handleEndGame s = do
   where
     justShowScore = putStrLn $ "Your final score: " ++ show s
     newHighScore = do
-      putStrLn $ "Congrats! You just got the new highest score: " ++ show s
+      putStrLn $ "Congrats! You got the new highest score: " ++ show s
       setHighScore s
 
 -- High score stuff
