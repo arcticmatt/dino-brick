@@ -3,12 +3,15 @@
 
 module Dino where
 
+import qualified Data.Map as M
+import Data.Ratio ((%))
+import Control.Monad.Random
 import Control.Monad (guard)
 import Data.Maybe (fromMaybe)
 import Lens.Micro.TH (makeLenses)
 import Lens.Micro ((&), (.~), (%~), (^.))
 import Linear.V2 (V2(..))
-import System.Random (Random(..), randomRs, newStdGen)
+import System.Random (Random(..), StdGen(..), randomRs, newStdGen)
 import qualified Data.Sequence as S
 import Data.Sequence(ViewR(..), ViewL(..), viewr, viewl, (|>))
 import Data.Monoid (Any(..), getAny)
@@ -18,18 +21,28 @@ data Game = Game
   { _dino           :: Dino           -- ^ dinosaur
   , _dir            :: Direction      -- ^ direction of left foot
   , _barriers       :: S.Seq Barrier  -- ^ sequence of barriers on screen
-  , _rands          :: [Int]          -- ^ random numbers for spawning
   , _dimns          :: [Dimension]    -- ^ random barrier dimensions
+  , _positions      :: [Position]     -- ^ random barrier positions
+  , _level          :: Difficulty     -- ^ game's difficulty level
+  , _diffMap        :: DifficultyMap  -- ^ game's difficulty map
   , _dead           :: Bool           -- ^ game over flag
   , _scoreMod       :: Int            -- ^ controls how often we update the score
-  , _score          :: Int            -- ^ score
+  , _score          :: Score          -- ^ score
   } deriving (Show)
 
+type Score = Int
 type Coord = V2 Int
 type Dino = [Coord] -- we'll represent the dino by 1 or 2 points
 type Barrier = [Coord] -- barriers will be 1-6 points around
 -- TODO: probably not worth it to use sequences here
 type Dimension = V2 Int
+data DifficultyMap = DifficultyMap
+  { _d0 :: DiffMod
+  , _d1 :: DiffMod
+  , _d2 :: DiffMod
+  , _d3 :: DiffMod
+  , _d4 :: DiffMod
+  } deriving (Eq, Show)
 
 data Direction =
     Up
@@ -38,6 +51,29 @@ data Direction =
   | Still
   deriving (Eq, Show)
 
+data Difficulty =
+    D0
+  | D1
+  | D2
+  | D3
+  | D4
+  deriving (Eq, Ord, Show, Enum)
+
+data Position = Ground | Sky deriving (Eq, Show)
+
+-- These modifiers will modify the base parameters.
+-- The first two modify the random generated size for barriers.
+-- The last one modifies the random spawning distance between generators.
+type WidthMod  = Int
+type HeightMod = Int
+type DistMod = [Int]
+data DiffMod = DiffMod
+  { _widthmod  :: WidthMod
+  , _heightmod :: HeightMod
+  , _distMod   :: DistMod
+  } deriving (Eq, Show)
+
+makeLenses ''DifficultyMap
 makeLenses ''Game
 
 -- Constants
@@ -55,21 +91,23 @@ duckingDino = [V2 5 0]
 maxHeight :: Int
 maxHeight = 5
 
--- Spawning min/max distances
-distMin, distMax :: Int
-distMin = 10
-distMax = 20
-
 -- Barrier min/max width/height
 widthMin, widthMax, heightMin, heightMax :: Int
 widthMin = 1
-widthMax = 3
+widthMax = 1
 heightMin = 1
-heightMax = 3
+heightMax = 2
 
 -- Update score every three frames
 constScoreMod :: Int
 constScoreMod = 2
+
+-- Increase the difficulty everytime the score goes up by levelAmount.
+levelAmount :: Score
+levelAmount = 50
+
+scoreMap :: M.Map Int Difficulty
+scoreMap = M.fromList $ zip [0 ..] [D0 ..]
 
 -- Functions
 -- | Step forward in time.
@@ -81,13 +119,41 @@ step g = fromMaybe g $ do
 
 -- | What to do if we are not dead.
 step' :: Game -> Game
-step' = incScore . move . spawnBarrier . deleteBarrier . adjustStanding
+step' = incDifficulty . incScore . move . spawnBarrier . deleteBarrier . adjustStanding
 
 incScore :: Game -> Game
 incScore g = case g^.scoreMod of
   0 -> g & score %~ (+1) & scoreMod %~ incAndMod
   _ -> g & scoreMod %~ incAndMod
   where incAndMod x = (x + 1) `mod` constScoreMod
+
+-- | Get game's relevant diff mod.
+getDiffMod :: Game -> DiffMod
+getDiffMod g = case g^.level of
+  D0 -> g^.diffMap.d0
+  D1 -> g^.diffMap.d1
+  D2 -> g^.diffMap.d2
+  D3 -> g^.diffMap.d3
+  D4 -> g^.diffMap.d4
+
+-- | Set game's relevant diff mod.
+setDiffMod :: DiffMod -> Game -> Game
+setDiffMod dm g = case g^.level of
+  D0 -> g & diffMap.d0 .~ dm
+  D1 -> g & diffMap.d1 .~ dm
+  D2 -> g & diffMap.d2 .~ dm
+  D3 -> g & diffMap.d3 .~ dm
+  D4 -> g & diffMap.d4 .~ dm
+
+-- | Convert score to difficulty level
+scoreToDiff :: Score -> Difficulty
+scoreToDiff score = let l = score `div` levelAmount
+                    in fromMaybe D4 (M.lookup l scoreMap)
+
+-- | Increase the game's (difficulty) level. We'll increase it every
+-- levelAmount points.
+incDifficulty :: Game -> Game
+incDifficulty g = g & level .~ scoreToDiff (g^.score)
 
 -- | Possibly die if next dino position is disallowed.
 die :: Game -> Maybe Game
@@ -192,30 +258,57 @@ deleteBarrier g =
 -- 1) Pick random number in range (generated initially b/c we need IO)
 -- 2) If last barrier (closest to right side of screen) is
 -- beyond that random number, we add another barrier to the sequence.
+--
+--
 spawnBarrier :: Game -> Game
 spawnBarrier g =
-  let (r:rs) = g^.rands
+  -- Width, height, distance modifiers
+  let (DiffMod wm hm (d:ds)) = getDiffMod g
+      newDiffMod = DiffMod wm hm ds
   in case viewr $ g^.barriers of
     EmptyR -> addRandomBarrier g
     _ :> a -> let x = getBarrierLeftmost a in
-                if (gridWidth - x) > r then addRandomBarrier g & rands .~ rs else g
+                if (gridWidth - x) > d then setDiffMod newDiffMod (addRandomBarrier g) else g
 
 getBarrierLeftmost :: Barrier -> Int
-getBarrierLeftmost [] = error "empty barrier"
+getBarrierLeftmost [] = 0
 getBarrierLeftmost (V2 x _:_) = x
 
 getBarrierRightmost :: Barrier -> Int
-getBarrierRightmost [] = error "empty barrier"
+getBarrierRightmost [] = gridWidth
 getBarrierRightmost b = let (V2 x _) = last b in x
 
--- | Add random barrier (constrained random width/height)
--- Note: In (V4 w x y z), w x is bottom left, y z is top right
+-- | Add random barrier (constrained random width/height).
+-- Choose between ground barrier and sky barrier.
 addRandomBarrier :: Game -> Game
 addRandomBarrier g =
-  let (V2 w h:rest) = g^.dimns
-      newBarrier = [V2 (gridWidth + a) (0 + b)
-                    | a <- [0..w-1], b <- [0..h-1]]
+  let (p:ps) = g^.positions
+  in case p of
+    Sky    -> addRandomSkyBarrier g & positions .~ ps
+    Ground -> addRandomGroundBarrier g & positions .~ ps
+
+-- | Add random ground barrier (ypos is 0)
+addRandomGroundBarrier :: Game -> Game
+addRandomGroundBarrier g =
+  let (dim:rest) = g^.dimns
+      (DiffMod wm hm _) = getDiffMod g -- UNSAFE!
+      newBarrier = makeBarrier (V2 wm hm) 0
   in g & barriers %~ (|> newBarrier) & dimns .~ rest
+
+-- | Add random sky barrier (ypos is 1)
+addRandomSkyBarrier :: Game -> Game
+addRandomSkyBarrier g =
+  let (dim:rest) = g^.dimns
+      (DiffMod wm hm _) = getDiffMod g -- UNSAFE!
+      newBarrier = makeBarrier (V2 wm hm) 1
+  in g & barriers %~ (|> newBarrier) & dimns .~ rest
+
+-- | Make a barrier. The width and height are determined by
+-- the dimension, and the second parameter determines the
+-- starting ypos.
+makeBarrier :: Dimension -> Int -> Barrier
+makeBarrier (V2 w h) y =
+  [V2 (gridWidth + a) (y + b) | a <- [0..w-1], b <- [0..h-1]]
 
 -- | Checks to see if the passed-in coordinate is in any
 -- of the barriers
@@ -227,21 +320,43 @@ inBarriers c bs = getAny $ foldMap (Any . inBarrier c) bs
 inBarrier :: Coord -> Barrier -> Bool
 inBarrier c b = c `elem` b
 
+
 -- Initialization functions
 -- | Initialize a game with random stair location
 initGame :: IO Game
 initGame = do
-  randomDists <- randomRs (distMin, distMax) <$> newStdGen
-  dimensions  <- randomRs (V2 widthMin heightMin, V2 widthMax heightMax) <$> newStdGen
+  dimensions      <- randomRs (V2 widthMin heightMin, V2 widthMax heightMax) <$> newStdGen
+  randomPositions <- flip weightedList ((Sky, 1 % 4) : replicate 3 (Ground, 1 % 4)) <$> newStdGen
+  dMap            <- difficultyMap
   let g = Game { _dino = standingDino
                , _dir = Still
                , _barriers = S.empty
-               , _rands = randomDists
                , _dimns = dimensions
+               , _positions = randomPositions
+               , _level = D0
+               , _diffMap = dMap
                , _dead = False
                , _scoreMod = 0
                , _score = 0 }
   return g
+
+difficultyMap :: IO DifficultyMap
+difficultyMap = do
+  dists1 <- randomRs (20, gridWidth) <$> newStdGen
+  dists2 <- randomRs (20, 25) <$> newStdGen
+  dists3 <- randomRs (15, 25) <$> newStdGen
+  dists4 <- randomRs (10, 20) <$> newStdGen
+  dists5 <- randomRs (10, 15) <$> newStdGen
+  return $ DifficultyMap
+    (DiffMod 1 1 dists1)
+    (DiffMod 1 2 dists2)
+    (DiffMod 2 2 dists3)
+    (DiffMod 2 3 dists4)
+    (DiffMod 3 3 dists5)
+
+weightedList :: RandomGen g => g -> [(a, Rational)] -> [a]
+weightedList gen weights = evalRand m gen
+    where m = sequence . repeat . fromList $ weights
 
 instance Random a => Random (V2 a) where
   randomR (V2 x1 y1, V2 x2 y2) g =
