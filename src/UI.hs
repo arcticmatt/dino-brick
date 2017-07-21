@@ -51,6 +51,9 @@ handleEvent :: Game -> BrickEvent Name Tick -> EventM Name (Next Game)
 handleEvent g (AppEvent Tick)                       = continue $ step g
 handleEvent g (VtyEvent (V.EvKey V.KUp []))         = continue $ handleUp g
 handleEvent g (VtyEvent (V.EvKey V.KDown []))       = continue $ handleDown g
+handleEvent g (VtyEvent (V.EvKey (V.KChar 'w') [])) = continue $ handleUp g
+handleEvent g (VtyEvent (V.EvKey (V.KChar 's') [])) = continue $ handleDown g
+handleEvent g (VtyEvent (V.EvKey (V.KChar 'p') [])) = continue $ pause g
 handleEvent g (VtyEvent (V.EvKey (V.KChar 'q') [])) = halt g
 handleEvent g (VtyEvent (V.EvKey V.KEsc []))        = halt g
 handleEvent _ (VtyEvent (V.EvKey (V.KChar 'r') [])) =
@@ -134,6 +137,6 @@ playGame = do
     c' <- readIORef counter
     writeBChan chan Tick
     threadDelay (max (70000 - c' * 10) 30000)
-    -- threadDelay 1000000
+    -- threadDelay 30000
   g <- initGame
   customMain (V.mkVty V.defaultConfig) (Just chan) app g

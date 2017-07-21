@@ -25,6 +25,7 @@ data Game = Game
   , _level          :: Difficulty     -- ^ game's difficulty level
   , _diffMap        :: DifficultyMap  -- ^ game's difficulty map
   , _dead           :: Bool           -- ^ game over flag
+  , _paused         :: Bool           -- ^ paused flag
   , _scoreMod       :: Int            -- ^ controls how often we update the score
   , _score          :: Score          -- ^ score
   } deriving (Show)
@@ -113,7 +114,7 @@ scoreMap = M.fromList $ zip [0 ..] [D0 ..]
 -- Increment score every tick.
 step :: Game -> Game
 step g = fromMaybe g $ do
-  guard $ not (g^.dead)
+  guard $ not (g^.dead || g^.paused)
   return $ fromMaybe (step' g) (die g)
 
 -- | What to do if we are not dead.
@@ -148,6 +149,7 @@ setDiffMod dm g = case g^.level of
 scoreToDiff :: Score -> Difficulty
 scoreToDiff sc = let l = sc `div` levelAmount
                     in fromMaybe D4 (M.lookup l scoreMap)
+-- scoreToDiff sc = D4
 
 -- | Increase the game's (difficulty) level. We'll increase it every
 -- levelAmount points.
@@ -331,16 +333,17 @@ initGame = do
   dimensions      <- randomRs (V2 widthMin heightMin, V2 widthMax heightMax) <$> newStdGen
   randomPositions <- flip weightedList ((Sky, 1 % 4) : replicate 3 (Ground, 1 % 4)) <$> newStdGen
   dMap            <- difficultyMap
-  let g = Game { _dino = standingDino
-               , _dir = Still
-               , _barriers = S.empty
-               , _dimns = dimensions
+  let g = Game { _dino      = standingDino
+               , _dir       = Still
+               , _barriers  = S.empty
+               , _dimns     = dimensions
                , _positions = randomPositions
-               , _level = D0
-               , _diffMap = dMap
-               , _dead = False
-               , _scoreMod = 0
-               , _score = 0 }
+               , _level     = D0
+               , _diffMap   = dMap
+               , _paused    = False
+               , _dead      = False
+               , _scoreMod  = 0
+               , _score     = 0 }
   return g
 
 difficultyMap :: IO DifficultyMap
