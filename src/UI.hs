@@ -75,7 +75,7 @@ drawStats g = hLimit 11
 -- Copied from snake example
 drawScore :: Int -> Widget Name
 drawScore n = withBorderStyle BS.unicodeBold
-  $ B.borderWithLabel (str "Score")
+  $ B.borderWithLabel (str " score ")
   $ C.hCenter
   $ padAll 1
   $ str $ show n
@@ -84,7 +84,7 @@ drawScore n = withBorderStyle BS.unicodeBold
 drawGameOver :: Bool -> Widget Name
 drawGameOver isDead =
   if isDead
-     then withAttr gameOverAttr $ C.hCenter $ str "GAME OVER"
+     then withAttr gameOverAttr $ C.hCenter $ str "game over"
      else emptyWidget
 
 -- Mostly copied from snake example

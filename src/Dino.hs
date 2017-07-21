@@ -84,7 +84,7 @@ makeLenses ''Game
 -- Constants
 gridWidth, gridHeight :: Int
 gridWidth = 40
-gridHeight = 15
+gridHeight = 10
 
 standingDino :: Dino
 standingDino = [V2 5 0, V2 5 1]
