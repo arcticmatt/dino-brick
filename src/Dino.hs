@@ -1,4 +1,3 @@
--- {-# LANGUAGE TemplateHaskell, FlexibleContexts #-}
 {-# LANGUAGE TemplateHaskell, RankNTypes #-}
 
 module Dino where
@@ -94,9 +93,9 @@ maxHeight = 5
 -- Barrier min/max width/height
 widthMin, widthMax, heightMin, heightMax :: Int
 widthMin = 1
-widthMax = 1
+widthMax = 4
 heightMin = 1
-heightMax = 2
+heightMax = 4
 
 -- Update score every three frames
 constScoreMod :: Int
@@ -288,19 +287,23 @@ addRandomBarrier g =
     Ground -> addRandomGroundBarrier g & positions .~ ps
 
 -- | Add random ground barrier (ypos is 0)
+-- Height and width of random barrier are the minimum of the current random
+-- coordinate and the current diffmod's height and width.
+-- E.g. at D0, everything will be w=1, h=1
+-- and at D4, heights and widths will range from 1 to 3
 addRandomGroundBarrier :: Game -> Game
 addRandomGroundBarrier g =
-  let (dim:rest) = g^.dimns
+  let (V2 w h:rest) = g^.dimns
       (DiffMod wm hm _) = getDiffMod g -- UNSAFE!
-      newBarrier = makeBarrier (V2 wm hm) 0
+      newBarrier = makeBarrier (V2 (min w wm) (min h hm)) 0
   in g & barriers %~ (|> newBarrier) & dimns .~ rest
 
 -- | Add random sky barrier (ypos is 1)
 addRandomSkyBarrier :: Game -> Game
 addRandomSkyBarrier g =
-  let (dim:rest) = g^.dimns
+  let (V2 w h:rest) = g^.dimns
       (DiffMod wm hm _) = getDiffMod g -- UNSAFE!
-      newBarrier = makeBarrier (V2 wm hm) 1
+      newBarrier = makeBarrier (V2 (min w wm) (min h hm)) 1
   in g & barriers %~ (|> newBarrier) & dimns .~ rest
 
 -- | Make a barrier. The width and height are determined by
@@ -342,17 +345,17 @@ initGame = do
 
 difficultyMap :: IO DifficultyMap
 difficultyMap = do
-  dists1 <- randomRs (20, gridWidth) <$> newStdGen
-  dists2 <- randomRs (20, 25) <$> newStdGen
-  dists3 <- randomRs (15, 25) <$> newStdGen
-  dists4 <- randomRs (10, 20) <$> newStdGen
+  dists1 <- randomRs (20, 25) <$> newStdGen
+  dists2 <- randomRs (17, 22) <$> newStdGen
+  dists3 <- randomRs (15, 20) <$> newStdGen
+  dists4 <- randomRs (10, 17) <$> newStdGen
   dists5 <- randomRs (10, 15) <$> newStdGen
   return $ DifficultyMap
     (DiffMod 1 1 dists1)
     (DiffMod 1 2 dists2)
     (DiffMod 2 2 dists3)
     (DiffMod 2 3 dists4)
-    (DiffMod 3 3 dists5)
+    (DiffMod 4 4 dists5)
 
 weightedList :: RandomGen g => g -> [(a, Rational)] -> [a]
 weightedList gen weights = evalRand m gen
