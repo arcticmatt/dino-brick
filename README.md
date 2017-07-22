@@ -6,9 +6,9 @@ Chrome's no-wifi dino game lazily ported to the terminal
 
 ## installation 
 
-If you're installing on a Mac, then you can use the binaries attached to the GitHub release 
-([instructions](#github-release-binaries)). For other operating systems, you can install
-from source ([instructions](#install-from-source)).
+If you're installing on a Mac, then you 
+can [use the binaries attached to the GitHub release](#github-release-binaries). 
+For other operating systems, you can [install from source](#install-from-source).
 
 #### github release binaries
 
