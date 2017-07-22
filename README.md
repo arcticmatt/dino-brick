@@ -17,7 +17,7 @@ Install on macOS with the following commands:
 ```bash
 curl -L https://github.com/arcticmatt/dino-brick/releases/download/0.1.0/dino-`uname -s`-`uname -m` -o dino
 chmod +x dino
-sudo mv dino /usr/local/dino/ 
+sudo mv dino /usr/local/bin/ 
 ```
 
 #### install from source
