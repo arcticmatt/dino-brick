@@ -15,7 +15,7 @@ For other operating systems, you can [install from source](#install-from-source)
 Install on macOS with the following commands:
 
 ```bash
-curl -L https://github.com/arcticmatt/dino-brick/releases/download/0.1.0/dino-`uname -s`-`uname -m` -o dino
+curl -L https://github.com/arcticmatt/dino-brick/releases/download/0.1.1/dino-`uname -s`-`uname -m` -o dino
 chmod +x dino
 sudo mv dino /usr/local/bin/ 
 ```
