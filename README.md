@@ -1,5 +1,5 @@
-# dino game
+# dino
 
-Turns out doing stairs on terminal is not a good idea...
+Chrome's no-wifi dino game lazily ported to the terminal
 
-Time to PIVOT PIVOT PIVOT
+![terminal-gif](./docs/img/dino.gif)
