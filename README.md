@@ -45,3 +45,8 @@ If you're too lazy to run `dino --help`, here's how you play:
 * **p** to pause 
 * **r** to restart 
 * **q** to quit
+
+---
+
+thanks to [samtay](https://github.com/samtay) whose [brick tutorials](https://samtay.github.io/) greatly helped me! go check 
+them out
