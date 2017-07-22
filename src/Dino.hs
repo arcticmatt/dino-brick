@@ -29,6 +29,7 @@ data Game = Game
   , _scoreMod       :: Int            -- ^ controls how often we update the score
   , _score          :: Score          -- ^ score
   , _highscore      :: Score          -- ^ highscore of current sesh
+  , _duckCountdown  :: Int            -- ^ countdown for standing up after ducking
   } deriving (Show)
 
 type Score = Int
@@ -124,7 +125,16 @@ step g = fromMaybe g $ do
 
 -- | What to do if we are not dead.
 step' :: Game -> Game
-step' = incDifficulty . setHighScore . incScore . move . spawnBarrier . deleteBarrier . adjustStanding
+step' = incDifficulty . setHighScore . incScore . move . spawnBarrier . deleteBarrier . adjustStanding . adjustDuckCountdown
+
+adjustDuckCountdown :: Game -> Game
+adjustDuckCountdown = setDirectionFromDuckCountdown . decreaseDuckCountdown
+
+setDirectionFromDuckCountdown  :: Game -> Game
+setDirectionFromDuckCountdown g = if (g^.duckCountdown <= 0) && (g^.dir == Duck) then g & dir .~ Still else g
+
+decreaseDuckCountdown :: Game -> Game
+decreaseDuckCountdown g = if (g^.duckCountdown > 0) then g & duckCountdown %~ (\x -> x-1) else g
 
 incScore :: Game -> Game
 incScore g = case g^.scoreMod of
@@ -359,6 +369,7 @@ initGame hs = do
                , _scoreMod  = 0
                , _score     = 0
                , _highscore = hs
+               , _duckCountdown = -1
                }
   return g
 
