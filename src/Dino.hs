@@ -112,6 +112,10 @@ constScoreMod = 2
 levelAmount :: Score
 levelAmount = 100
 
+-- "Duck" direction frame longevity
+duckFrames :: Int
+duckFrames = 8
+
 scoreMap :: M.Map Int Difficulty
 scoreMap = M.fromList $ zip [0 ..] [D0 ..]
 
@@ -125,7 +129,8 @@ step g = fromMaybe g $ do
 
 -- | What to do if we are not dead.
 step' :: Game -> Game
-step' = incDifficulty . setHighScore . incScore . move . spawnBarrier . deleteBarrier . adjustStanding . adjustDuckCountdown
+step' = incDifficulty . setHighScore . incScore . move . spawnBarrier .
+          deleteBarrier . adjustStanding . adjustDuckCountdown
 
 adjustDuckCountdown :: Game -> Game
 adjustDuckCountdown = setDirectionFromDuckCountdown . decreaseDuckCountdown
@@ -134,7 +139,7 @@ setDirectionFromDuckCountdown  :: Game -> Game
 setDirectionFromDuckCountdown g = if (g^.duckCountdown <= 0) && (g^.dir == Duck) then g & dir .~ Still else g
 
 decreaseDuckCountdown :: Game -> Game
-decreaseDuckCountdown g = if (g^.duckCountdown > 0) then g & duckCountdown %~ (\x -> x-1) else g
+decreaseDuckCountdown g = if g^.duckCountdown > 0 then g & duckCountdown %~ subtract 1 else g
 
 incScore :: Game -> Game
 incScore g = case g^.scoreMod of
@@ -378,8 +383,9 @@ difficultyMap = do
   dists0 <- randomRs (20, 25) <$> newStdGen
   dists1 <- randomRs (17, 22) <$> newStdGen
   dists2 <- randomRs (16, 20) <$> newStdGen
-  dists3 <- randomRs (15, 18) <$> newStdGen
-  dists4 <- randomRs (12, 16) <$> newStdGen
+  dists3 <- randomRs (15, 20) <$> newStdGen
+  dists4 <- randomRs (12, 18) <$> newStdGen
+  distsHardest <- randomRs (12, 16) <$> newStdGen
   return $ DifficultyMap
     (DiffMod 1 1 dists0)
     (DiffMod 1 2 dists1)
@@ -387,7 +393,7 @@ difficultyMap = do
     (DiffMod 2 3 dists3)
     (DiffMod 3 3 dists4) -- same dists, different widths/heights
     (DiffMod 3 4 dists4)
-    (DiffMod 4 4 dists4)
+    (DiffMod 3 4 distsHardest)
 
 weightedList :: RandomGen g => g -> [(a, Rational)] -> [a]
 weightedList gen weights = evalRand m gen
